@@ -1,16 +1,15 @@
-# views/lomba_page.py — halaman Lomba ("Ayo jelajahi kompetisi!")
-# Alur: pilih Kategori / Urutkan -> Terapkan -> daftar lomba -> Lihat Detail
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout
-from views.card_grid import CardGrid
+# views/lomba_page.py — halaman Lomba ("Ayo jelajahi kompetisi!") versi QML
+# Kolom tengah dirender oleh QML (views/qml/LombaPage.qml); kolom kanan (profil +
+# tenggat) tetap widget biasa dari ContentPage. Signal ke luar tidak berubah.
+import os
+from PySide6.QtCore import QMetaObject, Qt, QUrl, Signal
+from PySide6.QtGui import QColor
+from PySide6.QtQuickWidgets import QQuickWidget
+from PySide6.QtWidgets import QVBoxLayout
 from views.content_page import ContentPage
-from views.filter_bar import FilterBar
-from views.lomba_card import LombaCard
-import config
-import data_store
-import helpers
-import sizes
+from views.lomba_backend import LombaBackend
 
+QML_FILE = os.path.join(os.path.dirname(__file__), "qml", "LombaPage.qml")
 
 
 class LombaPage(ContentPage):
@@ -19,52 +18,37 @@ class LombaPage(ContentPage):
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout(self.center)
-        layout.setContentsMargins(sizes.CONTENT_MARGIN, 28, sizes.CONTENT_MARGIN, 28)
-        layout.setSpacing(20)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        # Judul: maskot + judul (oranye), subjudul di bawahnya
-        greeting = QHBoxLayout()
-        greeting.setSpacing(12)
-        greeting.addWidget(helpers.make_image("burung.png", 64, "🦜", 40))
-        title = QLabel("Ayo jelajahi kompetisi!")
-        title.setStyleSheet("font-size: 30px; font-weight: bold; color: #F5A623;")
-        greeting.addWidget(title)
-        greeting.addStretch()
-        layout.addLayout(greeting)
-        self.subtitle_label = QLabel("")
-        self.subtitle_label.setStyleSheet("font-size: 14px;")
-        layout.addWidget(self.subtitle_label)
+        self.quick = QQuickWidget()
+        self.backend = LombaBackend(self.quick)   # anak dari quick: ikut dihapus SETELAH QML-nya
+        self.quick.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
+        self.quick.setClearColor(QColor("white"))
+        self.quick.rootContext().setContextProperty("lombaBackend", self.backend)
+        self.quick.setSource(QUrl.fromLocalFile(QML_FILE))
+        if self.quick.status() != QQuickWidget.Status.Ready:
+            for error in self.quick.errors():
+                print("QML error:", error.toString())
+        layout.addWidget(self.quick)
 
-        # Filter (Kategori | Urutkan) dan daftar kartu
-        self.filter_bar = FilterBar(data_store.get_kategori_lomba(), data_store.URUTAN_LOMBA,
-                                    data_store.URUTAN_LOMBA_DEFAULT, accent="yellow")
-        layout.addWidget(self.filter_bar)
-        self.card_grid = CardGrid(sizes.LOMBA_CARD_WIDTH, sizes.LOMBA_CARD_SPACING)
-        layout.addWidget(self.card_grid)
-        self.empty_label = QLabel("Belum ada lomba yang cocok dengan filter ini.")
-        self.empty_label.setStyleSheet(f"font-size: 15px; color: {config.COLOR_SUBTEXT};")
-        layout.addWidget(self.empty_label)
-        layout.addStretch()
+        # QScrollArea milik ContentPage yang scroll atas-bawah, jadi QML dibuat setinggi
+        # isinya (tanpa scroll sendiri): tinggi widget mengikuti implicitHeight QML.
+        self.root_item = self.quick.rootObject()   # None kalau QML gagal dimuat (lihat pesan error di atas)
+        if self.root_item is not None:
+            self.root_item.implicitHeightChanged.connect(self.fit_height)
+        self.fit_height()
 
-        # Signal & Slot: filter berubah -> tampilkan ulang daftar
-        self.filter_bar.changed.connect(self.show_lomba)
+        # Signal & Slot: QML minta buka detail -> teruskan ke dashboard
+        self.backend.detailRequested.connect(self.lomba_detail_clicked.emit)
 
-    def show_lomba(self):
-        items = data_store.get_lomba_terfilter(self.filter_bar.selected_categories,
-                                               self.filter_bar.selected_order)
-        self.subtitle_label.setText(f"{len(items)} lomba aktif yang terverifikasi")
-        cards = []
-        for lomba in items:
-            card = LombaCard(lomba)
-            card.setFixedWidth(sizes.LOMBA_CARD_WIDTH)
-            card.detail_clicked.connect(lambda lomba_id: self.lomba_detail_clicked.emit(lomba_id))
-            cards.append(card)
-        self.card_grid.set_cards(cards)
-        self.empty_label.setVisible(len(items) == 0)
+    def fit_height(self):
+        if self.root_item is not None:
+            self.quick.setMinimumHeight(int(self.root_item.implicitHeight()))
 
     # Widget Lifecycle: data di-refresh setiap halaman tampil
     def refresh(self):
-        self.show_lomba()
+        self.backend.reload()
 
     def on_hide(self):
-        self.filter_bar.close_popups()
+        if self.root_item is not None:
+            QMetaObject.invokeMethod(self.root_item, "closePopups", Qt.ConnectionType.DirectConnection)
