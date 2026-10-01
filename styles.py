@@ -145,6 +145,11 @@ QPushButton { background-color: #86D6F5; color: white; border: none; border-radi
               padding: 8px 26px; font-size: 14px; font-weight: bold; }
 QPushButton:hover { background-color: #6BC8EE; }
 """
+SIDEBAR_EDIT_BUTTON_STYLE = """
+QPushButton { background-color: #A8E4FB; color: #0A7BCB; border: none; border-radius: 10px;
+              padding: 3px 14px; font-size: 12px; font-weight: bold; text-align: center; }
+QPushButton:hover { background-color: #86D6F5; }
+"""
 DEADLINE_CARD_STYLE = "#DeadlineCard { background-color: #F6A9C4; border-radius: 24px; }"
 DEADLINE_ITEM_STYLE = "#DeadlineItem { background-color: white; border-radius: 8px; }"
 
@@ -209,21 +214,22 @@ QPushButton:hover {{ background-color: #0B2456; }}
 SUGGESTED_PARTNER_BOX_STYLE = "#SuggestedPartnerBox { background-color: #CDEBF7; border-radius: 24px; }"
 SUGGESTED_PARTNER_CARD_STYLE = "#SuggestedPartnerCard { background-color: white; border-radius: 16px; }"
 
-PROFILE_HEADER_STYLE = "#ProfileHeader { background-color: #CDEBF7; }"
-PROFILE_INFO_STYLE = "#ProfileInfo { background-color: white; border-radius: 18px; }"
+PROFILE_HEADER_STYLE = "#ProfileHeader { background-color: white; }"
+PROFILE_INFO_STYLE = "#ProfileInfo { background-color: white; }"
 BACK_BUTTON_STYLE = "QPushButton { background: transparent; border: none; padding: 4px; } QPushButton:hover { background-color: #B5E0F2; border-radius: 12px; }"
 INFO_PILL_STYLE = f"background-color: #FFC71F; color: {COLOR_NAVY}; border-radius: 12px; padding: 4px 16px; font-size: 13px;"
-SECTION_TITLE_STYLE = f"background-color: white; color: {COLOR_NAVY}; border: 2px solid {COLOR_NAVY}; border-radius: 14px; padding: 3px 26px; font-size: 15px; font-weight: bold;"
-SECTION_CARD_STYLE = "#SectionCard { background-color: #DDF1FA; border-radius: 18px; }"
+SECTION_TITLE_STYLE = f"background-color: white; color: {COLOR_NAVY}; border: 1px solid {COLOR_NAVY}; border-radius: 10px; padding: 1px 20px; font-size: 12px; font-weight: bold;"
+SECTION_CARD_STYLE = "#SectionCard { background-color: white; border: 1px solid #CDEBF7; border-radius: 14px; }"
+PROFILE_PHOTO_FRAME_STYLE = "#PhotoFrame { background-color: white; border: 3px solid #CDEBF7; border-radius: 18px; }"
 
 
 # ---------- Detail Lomba ----------
-DETAIL_HEADER_STYLE = "#DetailHeader { background-color: #FFE08F; }"
+DETAIL_HEADER_STYLE = "#DetailHeader { background-color: white; }"
 VERIFIED_BADGE_STYLE = f"background-color: #DDF1FA; color: {COLOR_PRIMARY}; border-radius: 10px; padding: 3px 12px; font-size: 12px; font-weight: bold;"
 DAYS_BADGE_STYLE = "background-color: #FFD6D6; color: #E53935; border-radius: 10px; padding: 3px 12px; font-size: 12px; font-weight: bold;"
-INFO_TITLE_STYLE = f"background-color: #FFB733; color: {COLOR_NAVY}; border-radius: 12px; padding: 3px 20px; font-size: 13px; font-weight: bold;"
-INFO_BOX_STYLE = "#InfoBox { background-color: #FFE9A8; border-radius: 16px; }"
-DETAIL_BOX_STYLE = "#DetailBox { background-color: #FCEFC7; border: 1px solid #F5D77F; border-radius: 6px; }"
+INFO_TITLE_STYLE = f"background-color: white; color: #F5A623; border: 1px solid #F5D77F; border-radius: 10px; padding: 2px 18px; font-size: 12px; font-weight: bold;"
+INFO_BOX_STYLE = "#InfoBox { background-color: #FFE9A8; border: 1px solid #F5D77F; border-radius: 14px; }"
+DETAIL_BOX_STYLE = "#DetailBox { background-color: white; border: 1px solid #F5D77F; border-radius: 14px; }"
 LOMBA_LINK_STYLE = f"font-size: 14px; color: {COLOR_PRIMARY};"
 
 

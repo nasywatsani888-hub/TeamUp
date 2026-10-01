@@ -1,6 +1,6 @@
 # views/lomba_page.py — halaman Lomba ("Ayo jelajahi kompetisi!") versi QML
-# Kolom tengah dirender oleh QML (views/qml/LombaPage.qml); kolom kanan (profil +
-# tenggat) tetap widget biasa dari ContentPage. Signal ke luar tidak berubah.
+# Kolom tengah dirender oleh QML (views/qml/LombaPage.qml); kolom kanan tidak dipakai (profil
+# sudah ada di sidebar). Signal ke luar tidak berubah.
 import os
 from PySide6.QtCore import QMetaObject, Qt, QUrl, Signal
 from PySide6.QtGui import QColor

@@ -1,13 +1,12 @@
 # views/home_page.py — Beranda (isi utama dashboard)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 from views.card_grid import CardGrid
 from views.content_page import ContentPage
 from views.lomba_card import LombaCard
 import config
 import data_store
 import helpers
-import icons
 import styles
 import sizes
 
@@ -15,10 +14,9 @@ import sizes
 class HomePage(ContentPage):
     find_partner_clicked = Signal()
     lomba_detail_clicked = Signal(int)
-    search_submitted = Signal(str)
 
     def __init__(self):
-        super().__init__()   # kerangka 3 kolom + panel kanan ada di ContentPage
+        super().__init__()   # kerangka kolom tengah ada di ContentPage
         self.build_center(self.center)
 
     # ---------- Kolom tengah ----------
@@ -26,14 +24,6 @@ class HomePage(ContentPage):
         layout = QVBoxLayout(parent)
         layout.setContentsMargins(sizes.CONTENT_MARGIN, 28, sizes.CONTENT_MARGIN, 28)
         layout.setSpacing(20)
-
-        self.search_input = QLineEdit()
-        self.search_input.setObjectName("SearchBar")
-        self.search_input.setStyleSheet(styles.SEARCH_STYLE)
-        self.search_input.setPlaceholderText("Cari lomba...")
-        self.search_input.addAction(icons.make_icon("search", config.COLOR_PRIMARY, 20),
-                                    QLineEdit.ActionPosition.LeadingPosition)
-        layout.addWidget(self.search_input)
 
         # Sapaan: maskot + judul di satu baris, subjudul tepat di bawahnya (sesuai desain)
         greeting = QHBoxLayout()
@@ -84,10 +74,6 @@ class HomePage(ContentPage):
 
         # Signal & Slot
         self.find_partner_button.clicked.connect(lambda: self.find_partner_clicked.emit())
-        self.search_input.returnPressed.connect(self.handle_search)
-
-    def handle_search(self):
-        self.search_submitted.emit(self.search_input.text().strip())
 
     def show_lomba_terbaru(self):
         """Bangun ulang kartu lomba di Beranda dari data_store.lomba_list saat ini."""

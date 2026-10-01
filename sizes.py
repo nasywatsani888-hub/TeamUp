@@ -12,7 +12,9 @@
 
 # ---------- Kerangka dashboard (sidebar & panel kanan) ----------
 SIDEBAR_WIDTH = 270            # views/sidebar.py
-RIGHT_PANEL_WIDTH = 360        # views/right_panel.py & views/lomba_detail_page.py
+RIGHT_PANEL_WIDTH = 360        # panel Rekomendasi Rekan di views/lomba_detail_page.py
+SIDEBAR_PROFILE_HEIGHT = 84      # tinggi kartu profil di sidebar
+SIDEBAR_AVATAR_SIZE = 48         # views/sidebar.py (kartu profil di sidebar)
 CONTENT_MARGIN = 32            # jarak tepi kolom tengah di tiap halaman dashboard
 
 # ---------- Kartu Lomba (dipakai di Beranda & halaman Lomba) ----------
@@ -20,6 +22,10 @@ LOMBA_CARD_WIDTH = 230
 LOMBA_CARD_MIN_WIDTH = 150     # lebar minimum sebelum di-setFixedWidth
 LOMBA_CARD_SPACING = 20
 LOMBA_POSTER_HEIGHT = 200      # tinggi gambar poster di bagian atas kartu
+
+# ---------- Detail Lomba: poster di header ----------
+DETAIL_POSTER_WIDTH = 190      # views/lomba_detail_page.py
+DETAIL_POSTER_HEIGHT = 240
 
 # ---------- Kartu Rekan Tim (halaman Rekan Tim) ----------
 PARTNER_CARD_WIDTH = 190
