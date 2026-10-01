@@ -244,6 +244,35 @@ def make_avatar(user, size):
     return label
 
 
+def make_photo_square(user, size, radius=16):
+    """Foto user persegi bertepi membulat (halaman Profil Rekan). Kalau foto belum
+    ada, tampilkan kotak dengan inisial nama."""
+    label = QLabel()
+    label.setFixedSize(size, size)
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    path = os.path.join(config.ASSETS_DIR, "foto", user.get("foto", ""))
+    if user.get("foto") and os.path.exists(path):
+        source = QPixmap(path).scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                      Qt.TransformationMode.SmoothTransformation)
+        rounded = QPixmap(size, size)
+        rounded.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(rounded)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        clip = QPainterPath()
+        clip.addRoundedRect(0, 0, size, size, radius, radius)
+        painter.setClipPath(clip)
+        painter.drawPixmap((size - source.width()) // 2, (size - source.height()) // 2, source)
+        painter.end()
+        label.setPixmap(rounded)
+    else:
+        words = user["nama"].split()
+        label.setText("".join(word[0] for word in words[:2]).upper())
+        label.setStyleSheet(
+            f"background-color: #FFE08F; color: {config.COLOR_NAVY}; border-radius: {radius}px; "
+            f"font-size: {size // 3}px; font-weight: bold;")
+    return label
+
+
 BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli",
          "Agustus", "September", "Oktober", "November", "Desember"]
 

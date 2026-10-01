@@ -36,8 +36,12 @@ class PartnerProfilePage(ContentPage):
         self.back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         header_row.addWidget(self.back_button, alignment=Qt.AlignmentFlag.AlignTop)
 
-        self.avatar_holder = QVBoxLayout()   # foto dibuat ulang tiap kali ganti user
-        header_row.addLayout(self.avatar_holder)
+        self.photo_frame = QFrame()   # bingkai foto; isinya dibuat ulang tiap kali ganti user
+        self.photo_frame.setObjectName("PhotoFrame")
+        self.photo_frame.setStyleSheet(styles.PROFILE_PHOTO_FRAME_STYLE)
+        self.avatar_holder = QVBoxLayout(self.photo_frame)
+        self.avatar_holder.setContentsMargins(4, 4, 4, 4)
+        header_row.addWidget(self.photo_frame, alignment=Qt.AlignmentFlag.AlignTop)
 
         info = QFrame()
         info.setObjectName("ProfileInfo")
@@ -57,19 +61,25 @@ class PartnerProfilePage(ContentPage):
             pill.setStyleSheet(styles.INFO_PILL_STYLE)
         info_grid.addWidget(self.name_label, 0, 0)
         info_grid.addWidget(self.username_label, 1, 0)
-        info_grid.addWidget(self.email_pill, 0, 1, alignment=Qt.AlignmentFlag.AlignRight)
-        info_grid.addWidget(self.instagram_pill, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
-        info_grid.addWidget(self.location_pill, 2, 0, alignment=Qt.AlignmentFlag.AlignLeft)
+        # Baris pil: lokasi di kiri, email + instagram di sebelahnya (sesuai desain)
+        pills = QHBoxLayout()
+        pills.setSpacing(16)
+        pills.addWidget(self.location_pill)
+        pills.addWidget(self.email_pill)
+        pills.addWidget(self.instagram_pill)
+        pills.addStretch()
+        info_grid.addLayout(pills, 2, 0, 1, 2)
+        info_grid.setColumnStretch(0, 1)
         header_row.addWidget(info, 1)
         layout.addWidget(header)
 
-        # ----- Isi: Tentang Saya, Keahlian, Pengalaman & Prestasi -----
+        # ----- Isi: Deskripsi, Keahlian, Pengalaman & Prestasi -----
         body = QVBoxLayout()
         body.setContentsMargins(sizes.CONTENT_MARGIN, 24, sizes.CONTENT_MARGIN, 28)
         body.setSpacing(22)
         self.bio_label = QLabel()
         self.bio_label.setWordWrap(True)
-        body.addLayout(self.make_section("Tentang Saya", self.bio_label))
+        body.addLayout(self.make_section("Deskripsi", self.bio_label))
 
         self.skills_grid = QGridLayout()
         self.skills_grid.setSpacing(10)
@@ -99,7 +109,7 @@ class PartnerProfilePage(ContentPage):
         card = QFrame()
         card.setObjectName("SectionCard")
         card.setStyleSheet(styles.SECTION_CARD_STYLE)
-        card.setMinimumHeight(90)
+        card.setMinimumHeight(70)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(20, 16, 20, 16)
         card_layout.addWidget(content_widget)
@@ -117,7 +127,7 @@ class PartnerProfilePage(ContentPage):
         if user is None:
             return
         helpers.clear_layout(self.avatar_holder)
-        self.avatar_holder.addWidget(helpers.make_avatar(user, 130), alignment=Qt.AlignmentFlag.AlignTop)
+        self.avatar_holder.addWidget(helpers.make_photo_square(user, 170))
 
         self.name_label.setText(user["nama"])
         self.username_label.setText("@" + user["username"])

@@ -137,8 +137,16 @@ class LombaDetailPage(ContentPage):
         self.back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         header_row.addWidget(self.back_button, alignment=Qt.AlignmentFlag.AlignTop)
 
+        # Poster sementara (blok warna + judul, seperti di kartu lomba)
+        self.poster_label = QLabel()
+        self.poster_label.setFixedSize(sizes.DETAIL_POSTER_WIDTH, sizes.DETAIL_POSTER_HEIGHT)
+        self.poster_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.poster_label.setWordWrap(True)
+        header_row.addWidget(self.poster_label, alignment=Qt.AlignmentFlag.AlignTop)
+
         title_column = QVBoxLayout()
-        title_column.setSpacing(4)
+        title_column.setSpacing(6)
+        title_column.addSpacing(8)
         self.title_label = QLabel()
         self.title_label.setWordWrap(True)
         self.title_label.setStyleSheet(f"font-size: 24px; font-weight: bold; color: {config.COLOR_NAVY};")
@@ -146,7 +154,6 @@ class LombaDetailPage(ContentPage):
         self.organizer_label.setStyleSheet("font-size: 14px;")
         title_column.addWidget(self.title_label)
         title_column.addWidget(self.organizer_label)
-        header_row.addLayout(title_column, 1)
 
         badges = QHBoxLayout()
         badges.setSpacing(8)
@@ -156,7 +163,10 @@ class LombaDetailPage(ContentPage):
         self.days_badge.setStyleSheet(styles.DAYS_BADGE_STYLE)
         badges.addWidget(verified)
         badges.addWidget(self.days_badge)
-        header_row.addLayout(badges)
+        badges.addStretch()
+        title_column.addLayout(badges)
+        title_column.addStretch()
+        header_row.addLayout(title_column, 1)
         layout.addWidget(header)
 
         # ----- Isi -----
@@ -171,7 +181,7 @@ class LombaDetailPage(ContentPage):
         self.deadline_label = QLabel()
         self.team_label = QLabel()
         for title, label in (("Tanggal Pelaksanaan", self.date_label),
-                             ("Tenggat Pendaftaran", self.deadline_label),
+                             ("Tanggal Pendaftaran", self.deadline_label),
                              ("Anggota Tim", self.team_label)):
             info_row.addLayout(self.make_info_box(title, label), 1)
         body.addLayout(info_row)
@@ -184,7 +194,7 @@ class LombaDetailPage(ContentPage):
         self.rules_layout.setSpacing(4)
         rules_box = QWidget()
         rules_box.setLayout(self.rules_layout)
-        body.addLayout(self.make_section("Syarat & ketentuan", rules_box))
+        body.addLayout(self.make_section("Syarat & Ketentuan", rules_box))
 
         # Panel "Profil yang Disarankan" (Bagian 6.3): muncul otomatis begitu Detail
         # Lomba dibuka, tanpa user perlu buka Temukan Partner secara terpisah.
@@ -193,7 +203,7 @@ class LombaDetailPage(ContentPage):
         self.link_label = QLabel()
         self.link_label.setStyleSheet(styles.LOMBA_LINK_STYLE)
         self.link_label.setOpenExternalLinks(True)   # klik -> buka di browser
-        body.addLayout(self.make_section("Link pendaftaran", self.link_label))
+        body.addLayout(self.make_section("Link Pendaftaran", self.link_label))
         body.addStretch()
         layout.addLayout(body, 1)
 
@@ -243,7 +253,11 @@ class LombaDetailPage(ContentPage):
         lomba = self.lomba
         if lomba is None:
             return
-        self.title_label.setText(lomba["judul"])
+        self.title_label.setText(lomba["judul"] + " - " + lomba["kategori"])
+        self.poster_label.setText(lomba["judul"].upper())
+        self.poster_label.setStyleSheet(
+            f"background-color: {lomba['warna']}; color: white; border-radius: 16px; "
+            "padding: 12px; font-size: 18px; font-weight: bold;")
         self.organizer_label.setText("Diselenggarakan oleh " + lomba["penyelenggara"])
         self.days_badge.setText(helpers.format_sisa(lomba["sisa_hari"]))
 
