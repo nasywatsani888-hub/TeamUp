@@ -71,11 +71,10 @@ class DashboardPage(BasePage):
         # Signal & Slot: sidebar dan Beranda -> listener di sini
         self.sidebar.menu_selected.connect(self.show_content)
         self.sidebar.help_clicked.connect(lambda: self.show_content("bantuan"))
+        self.sidebar.edit_profile_clicked.connect(lambda: self.show_content("edit_profil"))
         self.sidebar.logout_clicked.connect(self.handle_logout_clicked)
         self.help_page.cancel_clicked.connect(lambda: self.show_content("beranda"))
         self.home_page.find_partner_clicked.connect(lambda: self.show_content("rekan"))
-        self.home_page.edit_profile_clicked.connect(lambda: self.show_content("edit_profil"))
-        self.home_page.search_submitted.connect(lambda text: self.show_content("lomba"))
         self.home_page.lomba_detail_clicked.connect(self.handle_lomba_detail)
 
         # Lomba -> Detail Lomba -> Kembali (ke halaman asal: Beranda / Lomba / Riwayat)
@@ -94,8 +93,6 @@ class DashboardPage(BasePage):
         self.notification_page.post_requested.connect(self.handle_post_notification)
         # Edit Profil -> Simpan -> Beranda
         self.edit_profile_page.profile_saved.connect(self.handle_profile_saved)
-        for page in (self.partner_page, self.partner_profile_page, self.lomba_page, self.lomba_detail_page):
-            page.edit_profile_clicked.connect(lambda: self.show_content("edit_profil"))
 
     def add_content(self, key, page):
         self.content[key] = page
@@ -106,6 +103,7 @@ class DashboardPage(BasePage):
         mis. Profil Rekan yang dibuka dari Notifikasi tetap menandai 'Notifikasi')."""
         if key not in ("detail_lomba", "profil_rekan"):   # halaman "turunan" tidak dihitung
             self.current_key = key
+        self.sidebar.refresh_profile()   # @username di kartu profil sidebar
         self.pages.setCurrentWidget(self.content[key])
         self.sidebar.set_active(menu or key)
 

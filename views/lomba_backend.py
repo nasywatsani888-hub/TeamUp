@@ -14,25 +14,30 @@ class LombaBackend(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._categories = []
+        self._filters = {}               # {kunci_grup: [pilihan]} dari Filter Lomba
         self._order = data_store.URUTAN_LOMBA_DEFAULT
 
     # ---- data untuk QML (property + notify = binding otomatis) ----
     @Property(list, notify=changed)
     def lomba(self):
-        return data_store.get_lomba_terfilter(self._categories, self._order)
+        return data_store.get_lomba_filter(self._filters, self._order)
 
-    @Property(list, notify=changed)
-    def selectedCategories(self):
-        return self._categories
+    @Property("QVariantMap", notify=changed)
+    def selectedFilters(self):
+        return self._filters
+
+    @Property(int, notify=changed)
+    def activeFilterCount(self):
+        return sum(len([p for p in v if p != "Semua"]) for v in self._filters.values())
+
+    @Property(list, constant=True)
+    def filterGroups(self):
+        return [{"key": k, "title": t, "options": o, "single": one}
+                for k, t, o, one in data_store.FILTER_LOMBA_GRUP]
 
     @Property(str, notify=changed)
     def selectedOrder(self):
         return self._order
-
-    @Property(list, notify=changed)
-    def kategoriOptions(self):
-        return data_store.get_kategori_lomba()
 
     @Property(list, constant=True)
     def urutanOptions(self):
@@ -71,9 +76,9 @@ class LombaBackend(QObject):
         """Dipanggil tiap halaman tampil (Widget Lifecycle)."""
         self.changed.emit()
 
-    @Slot("QVariantList")
-    def setCategories(self, cats):
-        self._categories = list(cats)
+    @Slot("QVariantMap")
+    def setFilters(self, filters):
+        self._filters = {k: list(v) for k, v in filters.items()}
         self.changed.emit()
 
     @Slot("QVariantList")

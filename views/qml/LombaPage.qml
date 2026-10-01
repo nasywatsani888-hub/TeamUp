@@ -7,10 +7,10 @@ import QtQuick.Layouts
 Item {
     id: page
     // minimal 560 supaya popup filter (±300 px) selalu muat walau daftar kosong
-    implicitHeight: Math.max(560, col.implicitHeight)
+    implicitHeight: Math.max(620, col.implicitHeight)
 
     function closePopups() {
-        kategoriDropdown.close()
+        filterPanel.close()
         urutanDropdown.close()
     }
 
@@ -19,47 +19,43 @@ Item {
         width: page.width
         spacing: 20
 
-        Item { Layout.preferredHeight: 8 }
-
-        // Judul: maskot + judul (oranye)
-        RowLayout {
-            Layout.leftMargin: lombaBackend.contentMargin
-            spacing: 12
-            Image {
-                visible: lombaBackend.mascotUrl !== ""
-                source: lombaBackend.mascotUrl
-                sourceSize.width: 64
-                fillMode: Image.PreserveAspectFit
-                Layout.preferredWidth: 64
-                Layout.preferredHeight: 64
-            }
-            AppText { visible: lombaBackend.mascotUrl === ""; text: "🦜"; font.pixelSize: 40 }
-            AppText {
-                text: "Ayo jelajahi kompetisi!"
-                font.pixelSize: 30; font.bold: true; color: "#F5A623"
+        // Banner kuning: maskot + judul (oranye), selebar halaman
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 84
+            color: "#FFF1C9"
+            RowLayout {
+                anchors.left: parent.left; anchors.leftMargin: lombaBackend.contentMargin
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 12
+                Image {
+                    visible: lombaBackend.mascotUrl !== ""
+                    source: lombaBackend.mascotUrl
+                    sourceSize.width: 56
+                    fillMode: Image.PreserveAspectFit
+                    Layout.preferredWidth: 56
+                    Layout.preferredHeight: 56
+                }
+                AppText { visible: lombaBackend.mascotUrl === ""; text: "🦜"; font.pixelSize: 36 }
+                AppText {
+                    text: "Ayo jelajahi kompetisi!"
+                    font.pixelSize: 26; font.bold: true; color: "#F5A623"
+                }
             }
         }
-        AppText {
-            Layout.leftMargin: lombaBackend.contentMargin
-            text: lombaBackend.lomba.length + " lomba aktif yang terverifikasi"
-            font.pixelSize: 14; color: "#1F2937"
-        }
 
-        // FilterBar (rata kanan)
+        // Baris filter (rata kanan): Filter Lomba + Urutkan
         RowLayout {
             Layout.fillWidth: true
             Layout.rightMargin: lombaBackend.contentMargin
             spacing: 12
             Item { Layout.fillWidth: true }
-            FilterDropdown {
-                id: kategoriDropdown
-                buttonText: "Kategori" + (lombaBackend.selectedCategories.length
-                            ? " (" + lombaBackend.selectedCategories.length + ")" : "")
-                popupTitle: "Pilih kategori"
-                options: lombaBackend.kategoriOptions
-                selected: lombaBackend.selectedCategories
-                active: lombaBackend.selectedCategories.length > 0
-                onApplied: (picked) => lombaBackend.setCategories(picked)
+            FilterPanel {
+                id: filterPanel
+                groups: lombaBackend.filterGroups
+                selected: lombaBackend.selectedFilters
+                activeCount: lombaBackend.activeFilterCount
+                onApplied: (filters) => lombaBackend.setFilters(filters)
             }
             FilterDropdown {
                 id: urutanDropdown

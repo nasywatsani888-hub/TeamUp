@@ -139,6 +139,28 @@ lomba_list = [
      "link": "https://example.com/hackathon-daftar", "diunggah_hari_lalu": 1, "dilihat": 210},
 ]
 
+# Atribut tambahan tiap lomba untuk Filter Lomba (data contoh; nanti diisi dari form Unggah).
+# jenjang = daftar (boleh lebih dari satu); lainnya = satu nilai.
+_ATRIBUT_FILTER = {
+    1: {"jenjang": ["Mahasiswa"], "jenis": "Lainnya", "cakupan": "Lokal/Regional", "biaya": "Gratis"},
+    2: {"jenjang": ["SMA/SMK/Sederajat", "Mahasiswa"], "jenis": "Desain/UI-UX", "cakupan": "Nasional", "biaya": "Berbayar"},
+    3: {"jenjang": ["Mahasiswa"], "jenis": "KTI/PKM", "cakupan": "Nasional", "biaya": "Gratis"},
+    4: {"jenjang": ["Mahasiswa"], "jenis": "Lainnya", "cakupan": "Lokal/Regional", "biaya": "Gratis"},
+    5: {"jenjang": ["Mahasiswa"], "jenis": "Hackathon", "cakupan": "Nasional", "biaya": "Berbayar"},
+}
+for _lomba in lomba_list:
+    _lomba.update(_ATRIBUT_FILTER.get(_lomba["id"], {}))
+
+# Grup Filter Lomba: (kunci, judul, pilihan, hanya_satu). "Semua" = tanpa batasan.
+FILTER_LOMBA_GRUP = [
+    ("jenjang", "Jenjang", ["SMA/SMK/Sederajat", "Mahasiswa"], False),
+    ("jenis", "Jenis Lomba", ["Hackathon", "KTI/PKM", "Desain/UI-UX", "Lainnya"], False),
+    ("cakupan", "Cakupan", ["Lokal/Regional", "Nasional", "Internasional"], False),
+    ("biaya", "Biaya Pendaftaran", ["Gratis", "Berbayar", "Semua"], True),
+    ("anggota", "Anggota Tim", ["Individu", "2-3 Anggota", "4-6 Anggota", "Lainnya"], False),
+]
+_RENTANG_ANGGOTA = {"Individu": (1, 1), "2-3 Anggota": (2, 3), "4-6 Anggota": (4, 6)}
+
 URUTAN_LOMBA_DEFAULT = "Deadline terdekat"
 URUTAN_LOMBA = ["Deadline terdekat", "Baru diunggah", "Paling populer"]
 
@@ -317,6 +339,59 @@ def get_lomba_terfilter(kategori_dipilih=(), urutan=URUTAN_LOMBA_DEFAULT):
     """Lomba sesuai kategori terpilih (kosong = semua), diurutkan menurut 'urutan'."""
     hasil = [lomba for lomba in lomba_list
              if len(kategori_dipilih) == 0 or lomba["kategori"] in kategori_dipilih]
+    if urutan == "Baru diunggah":
+        hasil.sort(key=lambda lomba: lomba["diunggah_hari_lalu"])
+    elif urutan == "Paling populer":
+        hasil.sort(key=lambda lomba: lomba["dilihat"], reverse=True)
+    else:
+        hasil.sort(key=lambda lomba: lomba["sisa_hari"])
+    return hasil
+
+
+def _rentang_tim(teks):
+    """'2-4 Anggota' -> (2, 4); 'Individu' -> (1, 1); '3 Anggota' -> (3, 3)."""
+    if teks.lower().startswith("individu"):
+        return (1, 1)
+    angka = [int(x) for x in "".join(c if c.isdigit() else " " for c in teks).split()]
+    if not angka:
+        return (0, 0)
+    return (min(angka), max(angka))
+
+
+def _cocok_anggota(lomba, pilihan):
+    """True kalau rentang anggota lomba beririsan dengan salah satu pilihan."""
+    awal, akhir = _rentang_tim(lomba["anggota_tim"])
+    for opsi in pilihan:
+        if opsi == "Lainnya":
+            if not any(awal <= b and akhir >= a for a, b in _RENTANG_ANGGOTA.values()):
+                return True
+        else:
+            a, b = _RENTANG_ANGGOTA[opsi]
+            if awal <= b and akhir >= a:
+                return True
+    return False
+
+
+def get_lomba_filter(filter_dipilih, urutan=URUTAN_LOMBA_DEFAULT):
+    """Filter Lomba bertingkat: nilai dalam satu grup = ATAU, antar grup = DAN.
+    filter_dipilih: {kunci_grup: [pilihan, ...]}; grup kosong / 'Semua' = tanpa batasan."""
+    hasil = []
+    for lomba in lomba_list:
+        cocok = True
+        for kunci, pilihan in filter_dipilih.items():
+            pilihan = [p for p in pilihan if p != "Semua"]
+            if not pilihan:
+                continue
+            if kunci == "jenjang":
+                cocok = any(p in lomba.get("jenjang", []) for p in pilihan)
+            elif kunci == "anggota":
+                cocok = _cocok_anggota(lomba, pilihan)
+            else:
+                cocok = lomba.get(kunci) in pilihan
+            if not cocok:
+                break
+        if cocok:
+            hasil.append(lomba)
     if urutan == "Baru diunggah":
         hasil.sort(key=lambda lomba: lomba["diunggah_hari_lalu"])
     elif urutan == "Paling populer":

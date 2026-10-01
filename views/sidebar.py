@@ -1,7 +1,8 @@
 # views/sidebar.py — menu samping (Beranda, Unggah Postingan, dst.)
 from PySide6.QtCore import Qt, QSize, Signal
-from PySide6.QtWidgets import QFrame, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 import config
+import data_store
 import helpers
 import icons
 import styles
@@ -23,6 +24,7 @@ class Sidebar(QFrame):
     menu_selected = Signal(str)
     logout_clicked = Signal()
     help_clicked = Signal()
+    edit_profile_clicked = Signal()
 
     def __init__(self):
         super().__init__()
@@ -47,6 +49,35 @@ class Sidebar(QFrame):
 
         layout.addStretch()
 
+        # Kartu profil (pindahan dari panel kanan): avatar, @username, tombol Edit Profile
+        profile = QFrame()
+        profile.setObjectName("ProfileCard")
+        profile.setStyleSheet(styles.PROFILE_CARD_STYLE)
+        profile.setFixedHeight(sizes.SIDEBAR_PROFILE_HEIGHT)
+        profile_row = QHBoxLayout(profile)
+        profile_row.setContentsMargins(14, 12, 14, 12)
+        profile_row.setSpacing(10)
+        avatar = QLabel()
+        avatar.setFixedSize(sizes.SIDEBAR_AVATAR_SIZE, sizes.SIDEBAR_AVATAR_SIZE)
+        avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        avatar.setStyleSheet(f"background-color: white; border-radius: {sizes.SIDEBAR_AVATAR_SIZE // 2}px;")
+        avatar.setPixmap(icons.make_icon("user", config.COLOR_NAVY, 28).pixmap(QSize(28, 28)))
+        profile_text = QVBoxLayout()
+        profile_text.setSpacing(4)
+        self.username_label = QLabel("@username")
+        self.username_label.setStyleSheet(f"font-size: 13px; font-weight: bold; color: {config.COLOR_NAVY};")
+        self.edit_profile_button = QPushButton("Edit Profile")
+        self.edit_profile_button.setStyleSheet(styles.SIDEBAR_EDIT_BUTTON_STYLE)
+        self.edit_profile_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        profile_text.addStretch()
+        profile_text.addWidget(self.username_label)
+        profile_text.addWidget(self.edit_profile_button)
+        profile_text.addStretch()
+        profile_row.addWidget(avatar)
+        profile_row.addLayout(profile_text, 1)
+        layout.addWidget(profile)
+        layout.addSpacing(4)
+
         logout_button = self.make_button("Keluar", "log-out")
         help_button = self.make_button("Pusat Bantuan", "phone")
         # Keluar & Pusat Bantuan ikut dihitung sebagai menu (aktif = merah muda)
@@ -56,6 +87,7 @@ class Sidebar(QFrame):
             button.setProperty("danger", True)
         logout_button.clicked.connect(lambda: self.logout_clicked.emit())
         help_button.clicked.connect(lambda: self.help_clicked.emit())
+        self.edit_profile_button.clicked.connect(lambda: self.edit_profile_clicked.emit())
         layout.addWidget(logout_button)
         layout.addWidget(help_button)
 
@@ -72,3 +104,9 @@ class Sidebar(QFrame):
             button.setProperty("active", button_key == key)
             button.style().unpolish(button)
             button.style().polish(button)
+
+    def refresh_profile(self):
+        """Perbarui @username (dipanggil DashboardPage tiap pindah halaman)."""
+        user = data_store.current_user
+        username = user["username"] if user and user["username"] else "username"
+        self.username_label.setText("@" + username)
