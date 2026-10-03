@@ -1,6 +1,3 @@
 __pycache__/
 *.pyc
-*.zip
-*.swp
-*.swo
-.DS_Store
+assets/postingan/

@@ -13,7 +13,11 @@ from views.notification_page import NotificationPage
 from views.lomba_detail_page import LombaDetailPage
 from views.partner_page import PartnerPage
 from views.partner_profile_page import PartnerProfilePage
-from views.placeholder_page import PlaceholderPage
+from views.upload_page import UploadPage
+from views.post_form_page import PostFormPage
+from views.post_detail_page import PostDetailPage
+from views.post_success_page import PostSuccessPage
+from views.post_dialogs import ConfirmDialog, EditBlockedDialog
 import data_store
 import styles
 
@@ -65,8 +69,14 @@ class DashboardPage(BasePage):
         self.add_content("edit_profil", self.edit_profile_page)
         self.help_page = HelpPage()
         self.add_content("bantuan", self.help_page)
-        for key, title in [("unggah", "Unggah Postingan")]:
-            self.add_content(key, PlaceholderPage(title))
+        self.upload_page = UploadPage()
+        self.add_content("unggah", self.upload_page)
+        self.post_form_page = PostFormPage()
+        self.add_content("unggah_form", self.post_form_page)
+        self.post_detail_page = PostDetailPage()
+        self.add_content("post_detail", self.post_detail_page)
+        self.post_success_page = PostSuccessPage()
+        self.add_content("post_sukses", self.post_success_page)
 
         # Signal & Slot: sidebar dan Beranda -> listener di sini
         self.sidebar.menu_selected.connect(self.show_content)
@@ -91,6 +101,20 @@ class DashboardPage(BasePage):
         # Notifikasi -> profil partner / Postingan Saya
         self.notification_page.partner_profile_requested.connect(self.handle_partner_profile)
         self.notification_page.post_requested.connect(self.handle_post_notification)
+        # Unggah Postingan: daftar -> formulir / detail; formulir -> berhasil; detail -> dialog
+        self.upload_page.new_post_requested.connect(self.handle_new_post)
+        self.upload_page.post_clicked.connect(self.handle_post_detail)
+        self.post_form_page.back_clicked.connect(self.handle_form_back)
+        self.post_form_page.submitted.connect(self.handle_post_submitted)
+        self.post_success_page.back_clicked.connect(lambda: self.show_content("unggah"))
+        self.post_success_page.view_status_clicked.connect(self.handle_post_detail)
+        self.post_detail_page.back_clicked.connect(lambda: self.show_content("unggah"))
+        self.post_detail_page.edit_blocked_requested.connect(self.handle_edit_blocked)
+        self.post_detail_page.cancel_requested.connect(self.handle_post_cancel)
+        self.post_detail_page.delete_requested.connect(self.handle_post_delete)
+        self.post_detail_page.revise_requested.connect(self.handle_post_revise)
+        self.post_detail_page.new_post_requested.connect(self.handle_new_post)
+        self.post_detail_page.contact_admin_requested.connect(lambda: self.show_content("bantuan"))
         # Edit Profil -> Simpan -> Beranda
         self.edit_profile_page.profile_saved.connect(self.handle_profile_saved)
 
@@ -101,7 +125,7 @@ class DashboardPage(BasePage):
     def show_content(self, key, menu=None):
         """menu = menu sidebar yang ditandai kuning (kalau beda dari key,
         mis. Profil Rekan yang dibuka dari Notifikasi tetap menandai 'Notifikasi')."""
-        if key not in ("detail_lomba", "profil_rekan"):   # halaman "turunan" tidak dihitung
+        if key not in ("detail_lomba", "profil_rekan", "unggah_form", "post_detail", "post_sukses"):   # halaman "turunan" tidak dihitung
             self.current_key = key
         self.sidebar.refresh_profile()   # @username di kartu profil sidebar
         self.pages.setCurrentWidget(self.content[key])
@@ -136,8 +160,65 @@ class DashboardPage(BasePage):
         self.show_content("beranda")
 
     def handle_post_notification(self, status):
-        # Halaman "Postingan Saya" (status Disetujui / Revisi) dibuat di tahap Unggah Postingan
+        # Notifikasi "disetujui" / "revisi" -> Postingan Saya dengan filter status itu
+        self.upload_page.open_my_posts(status)
         self.show_content("unggah")
+
+    # ---------- Unggah Postingan ----------
+    def run_dialog(self, dialog):
+        """Tampilkan dialog di atas lapisan gelap; True kalau user menekan tombol konfirmasi."""
+        self.overlay.setGeometry(self.rect())
+        self.overlay.show()
+        self.overlay.raise_()
+        confirmed = dialog.exec() == QDialog.DialogCode.Accepted
+        self.overlay.hide()
+        return confirmed
+
+    def handle_new_post(self):
+        self.post_form_page.show_new()
+        self.show_content("unggah_form", menu="unggah")
+
+    def handle_post_detail(self, post_id):
+        self.post_detail_page.show_post(post_id)
+        self.show_content("post_detail", menu="unggah")
+
+    def handle_form_back(self):
+        if self.post_form_page.mode == "revisi":
+            self.handle_post_detail(self.post_form_page.post_id)   # batal perbaikan -> kembali ke detail
+        else:
+            self.show_content("unggah")
+
+    def handle_post_submitted(self, post_id, mode):
+        self.post_success_page.show_post(post_id, mode)
+        self.show_content("post_sukses", menu="unggah")
+
+    def handle_post_revise(self, post_id):
+        self.post_form_page.show_revision(post_id)
+        self.show_content("unggah_form", menu="unggah")
+
+    def handle_edit_blocked(self, post_id):
+        self.run_dialog(EditBlockedDialog(self))   # Ditangguhkan tidak boleh diedit (sesuai dokumen alur)
+
+    def handle_post_cancel(self, post_id):
+        post = data_store.get_postingan_by_id(post_id)
+        dialog = ConfirmDialog(
+            self, "Batalkan Pengajuan", "Apakah kamu yakin ingin membatalkan pengajuan", post["judul"],
+            "Setelah pengajuan dibatalkan, anda perlu mengajukan kembali jika ingin terus mengunggah",
+            "Ya, batalkan pengajuan", tone="batalkan")
+        if self.run_dialog(dialog):
+            salinan = dict(post)                      # detail tetap menampilkan datanya + banner berhasil
+            data_store.hapus_postingan(post_id)
+            self.post_detail_page.show_post(post_id, cancelled=True, salinan=salinan)
+
+    def handle_post_delete(self, post_id):
+        post = data_store.get_postingan_by_id(post_id)
+        dialog = ConfirmDialog(
+            self, "Hapus Pengajuan", "Apakah kamu yakin ingin menghapus pengajuan", post["judul"],
+            "Setelah pengajuan dihapus, pengajuan akan dibatalkan dan tidak akan diteruskan ke proses "
+            "verifikasi admin", "Ya, hapus pengajuan", tone="hapus")
+        if self.run_dialog(dialog):
+            data_store.hapus_postingan(post_id)
+            self.show_content("unggah")
 
     def handle_lomba_detail(self, lomba_id):
         data_store.add_to_history(lomba_id)   # dicatat ke Riwayat setiap dibuka

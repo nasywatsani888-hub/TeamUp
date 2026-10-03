@@ -82,3 +82,14 @@ OTP_BOX_HEIGHT = 72
 
 # ---------- Lengkapi Biodata ----------
 BIODATA_BIO_HEIGHT = 110
+
+# ---------- Unggah Postingan ----------
+POST_THUMB_SIZE = 44           # kotak gambar kecil di tiap baris postingan
+POST_BADGE_WIDTH = 100         # lebar badge status (Disetujui / Revisi / ...)
+
+# ---------- Dialog Postingan ----------
+CONFIRM_DIALOG_WIDTH = 480      # views/post_dialogs.py (Batalkan / Hapus pengajuan)
+CONFIRM_DIALOG_HEIGHT = 400
+EDIT_BLOCKED_DIALOG_WIDTH = 500 # dialog "tidak bisa edit saat diverifikasi"
+EDIT_BLOCKED_DIALOG_HEIGHT = 190
+POST_FORM_FILE_HEIGHT = 120     # tinggi kotak tarik-atau-pilih file di formulir

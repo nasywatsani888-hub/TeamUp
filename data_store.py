@@ -1,6 +1,7 @@
 # data_store.py — data SEMENTARA di memori (tanpa database)
 # Data hilang saat aplikasi ditutup. Database baru dipakai di pertemuan 9.
 import random
+from datetime import date
 
 users = [
     {
@@ -173,6 +174,79 @@ notifikasi_list = [
      "menit_lalu": 120, "dibaca": False},
     {"id": 3, "jenis": "revisi", "judul": "Business Case Competition",
      "menit_lalu": 2 * 24 * 60, "dibaca": True},
+]
+
+# Postingan lomba yang diunggah user (Unggah Postingan -> Postingan Saya).
+# status: "Ditangguhkan" (sedang ditinjau admin) | "Disetujui" | "Revisi" | "Ditolak"
+# alasan_singkat = ringkasan 1 baris di daftar; catatan_admin = penjelasan lengkap dari admin.
+# bagian_diperbaiki = field yang ditandai admin (saat ini hanya "link").
+STATUS_POSTINGAN = ["Ditangguhkan", "Disetujui", "Revisi", "Ditolak"]
+KATEGORI_POSTINGAN = ["Hackathon", "Desain/UI-UX", "KTI/PKM", "Lomba Bisnis",
+                      "Seni & Sastra", "Debat", "Robotics", "Lainnya"]
+
+
+def _postingan_baru(post_id, data):
+    """Bungkus data form menjadi satu postingan lengkap (status awal: Ditangguhkan)."""
+    return {
+        "id": post_id, "judul": data["judul"], "kategori": data["kategori"],
+        "penyelenggara": data["penyelenggara"], "deskripsi": data["deskripsi"],
+        "tanggal_lomba": data["tanggal_lomba"], "tenggat_lomba": data["tenggat_lomba"],
+        "link": data["link"], "kontak": data["kontak"],
+        "poster": data["poster"], "dokumen": data["dokumen"],
+        "status": "Ditangguhkan", "diunggah_hari_lalu": 0,
+        "dilihat": 0, "tersimpan": 0, "partner_tertarik": 0,
+        "alasan_singkat": "", "catatan_admin": "", "catatan_hari_lalu": 0,
+        "bagian_diperbaiki": "",
+    }
+
+
+postingan_list = [
+    {"id": 1, "judul": "Lomba UI/UX Nasional 2026", "kategori": "Desain/UI-UX",
+     "penyelenggara": "DPTII FT UNY",
+     "deskripsi": "Kompetisi nasional bidang desain antarmuka untuk pelajar SMA/SMK dan mahasiswa. "
+                  "Peserta merancang prototipe aplikasi yang menjawab masalah nyata.",
+     "tanggal_lomba": date(2026, 10, 12), "tenggat_lomba": date(2026, 10, 20),
+     "link": "https://example.com/uiux-daftar", "kontak": "081234567824",
+     "poster": "poster_uiux.pdf", "dokumen": "surat_tugas.pdf",
+     "status": "Disetujui", "diunggah_hari_lalu": 2,
+     "dilihat": 248, "tersimpan": 6, "partner_tertarik": 3,
+     "alasan_singkat": "", "catatan_admin": "", "catatan_hari_lalu": 0, "bagian_diperbaiki": ""},
+    {"id": 2, "judul": "Hackathon Kampus 2026", "kategori": "Hackathon",
+     "penyelenggara": "DPTEI FT UNY",
+     "deskripsi": "Kompetisi membangun solusi digital untuk masalah kampus dalam waktu 24 jam. "
+                  "Terbuka untuk seluruh mahasiswa UNY, tim maksimal 4 orang.",
+     "tanggal_lomba": date(2026, 10, 12), "tenggat_lomba": date(2026, 10, 20),
+     "link": "https://uii.ac.id/lomba-daftar", "kontak": "081234567824",
+     "poster": "poster_hackathon.pdf", "dokumen": "",
+     "status": "Ditangguhkan", "diunggah_hari_lalu": 1,
+     "dilihat": 0, "tersimpan": 0, "partner_tertarik": 0,
+     "alasan_singkat": "", "catatan_admin": "", "catatan_hari_lalu": 0, "bagian_diperbaiki": ""},
+    {"id": 3, "judul": "Business Case Competition", "kategori": "Lomba Bisnis",
+     "penyelenggara": "BINUS University",
+     "deskripsi": "Kompetisi menganalisis studi kasus bisnis nyata dari industri untuk mahasiswa "
+                  "se-Indonesia. Tim menyusun strategi solusi (marketing, keuangan, atau operasional) "
+                  "dan mempresentasikannya di hadapan juri praktisi bisnis dan akademisi.",
+     "tanggal_lomba": date(2026, 10, 12), "tenggat_lomba": date(2026, 10, 20),
+     "link": "https://uui.ac/id/bcc-daftar", "kontak": "086677882424",
+     "poster": "poster_bcc.pdf", "dokumen": "surat_resmi.pdf",
+     "status": "Revisi", "diunggah_hari_lalu": 4,
+     "dilihat": 0, "tersimpan": 0, "partner_tertarik": 0,
+     "alasan_singkat": "link pendaftaran tidak valid",
+     "catatan_admin": "Link pendaftaran yang dicantumkan tidak dapat diakses (404). Mohon perbaiki "
+                      "tautan ini dan pastikan link merupakan tautan pendaftaran resmi.",
+     "catatan_hari_lalu": 1, "bagian_diperbaiki": "link"},
+    {"id": 4, "judul": "Lomba Essay Ilmiah", "kategori": "Seni & Sastra",
+     "penyelenggara": "Komunitas Literasi Nusantara",
+     "deskripsi": "Lomba menulis essay ilmiah bertema inovasi pendidikan untuk mahasiswa.",
+     "tanggal_lomba": date(2026, 11, 2), "tenggat_lomba": date(2026, 10, 25),
+     "link": "https://example.com/essay-daftar", "kontak": "081200001111",
+     "poster": "poster_essay.pdf", "dokumen": "",
+     "status": "Ditolak", "diunggah_hari_lalu": 6,
+     "dilihat": 0, "tersimpan": 0, "partner_tertarik": 0,
+     "alasan_singkat": "penyelenggara tidak terverifikasi",
+     "catatan_admin": "Kontak dan dokumen pendukung penyelenggara tidak dapat diverifikasi. Kami tidak "
+                      "menemukan bukti resmi bahwa lomba ini diselenggarakan oleh pihak yang tercantum.",
+     "catatan_hari_lalu": 1, "bagian_diperbaiki": ""},
 ]
 
 history = []             # id lomba yang pernah dibuka (untuk halaman Riwayat)
@@ -398,6 +472,53 @@ def get_lomba_filter(filter_dipilih, urutan=URUTAN_LOMBA_DEFAULT):
         hasil.sort(key=lambda lomba: lomba["dilihat"], reverse=True)
     else:
         hasil.sort(key=lambda lomba: lomba["sisa_hari"])
+    return hasil
+
+
+def get_postingan(status=None):
+    """Postingan milik user. status=None -> semua; selain itu hanya yang statusnya cocok."""
+    return [post for post in postingan_list if status is None or post["status"] == status]
+
+
+def get_postingan_by_id(post_id):
+    for post in postingan_list:
+        if post["id"] == post_id:
+            return post
+    return None
+
+
+def tambah_postingan(data):
+    """Postingan baru dari form Unggah Info Lomba -> status Ditangguhkan, paling atas."""
+    post_id = max([post["id"] for post in postingan_list], default=0) + 1
+    post = _postingan_baru(post_id, data)
+    postingan_list.insert(0, post)
+    return post
+
+
+def kirim_ulang_postingan(post_id, data):
+    """Perbaikan dari status Revisi -> data diganti, status kembali Ditangguhkan."""
+    post = get_postingan_by_id(post_id)
+    post.update(data)
+    post["status"] = "Ditangguhkan"
+    post["diunggah_hari_lalu"] = 0
+    post["alasan_singkat"] = ""
+    post["catatan_admin"] = ""
+    post["bagian_diperbaiki"] = ""
+    return post
+
+
+def hapus_postingan(post_id):
+    """Dipakai untuk 'Batalkan pengajuan' (Ditangguhkan) dan 'Hapus pengajuan' (Revisi / Ditolak)."""
+    post = get_postingan_by_id(post_id)
+    if post is not None:
+        postingan_list.remove(post)
+
+
+def hitung_postingan():
+    """{'Semua': 4, 'Ditangguhkan': 1, ...} untuk angka di chip filter."""
+    hasil = {"Semua": len(postingan_list)}
+    for status in STATUS_POSTINGAN:
+        hasil[status] = len(get_postingan(status))
     return hasil
 
 

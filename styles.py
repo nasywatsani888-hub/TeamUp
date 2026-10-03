@@ -338,3 +338,79 @@ QPushButton { background-color: #D9534F; color: white; border: none; border-radi
               padding: 7px 0; font-size: 12px; font-weight: bold; }
 QPushButton:hover { background-color: #C4423E; }
 """
+
+
+# ---------- Unggah Postingan -> Postingan Saya ----------
+POST_TAB_STYLE = f"""
+QPushButton {{ background-color: white; color: #2557B0; border: 1px solid #2557B0;
+              border-radius: 12px; padding: 3px 16px; font-size: 12px; }}
+QPushButton:hover {{ background-color: #EAF1FC; }}
+QPushButton:checked {{ background-color: #2557B0; color: white; font-weight: bold; }}
+"""
+POST_CHIP_STYLE = f"""
+QPushButton {{ background-color: white; color: #2557B0; border: 1px solid #2557B0;
+              border-radius: 12px; padding: 3px 14px; font-size: 12px; }}
+QPushButton:hover {{ background-color: #EAF1FC; }}
+QPushButton:checked {{ background-color: #2557B0; color: white; font-weight: bold; }}
+"""
+POST_ITEM_STYLE = "#PostItem { background-color: white; border: 1px solid #C9CED6; border-radius: 4px; }"
+POST_THUMB_STYLE = "background-color: #EAF7FD; border-radius: 4px;"
+# status -> (warna latar, warna teks) badge di sisi kanan baris postingan
+POST_STATUS_COLORS = {
+    "Disetujui": ("#DDEBC8", "#4B7A2A"),
+    "Ditangguhkan": ("#FFEFC2", "#E39A1F"),
+    "Revisi": ("#EBA33A", "#FFFFFF"),
+    "Ditolak": ("#F7C6C6", "#8E2A2A"),
+}
+
+
+# ---------- Formulir Unggah Info Lomba ----------
+POST_FORM_STYLE = f"""
+#PostForm QLineEdit, #PostForm QTextEdit, #PostForm QDateEdit, #PostForm QComboBox {{
+    background-color: white; border: 1px solid #B8C2CC; border-radius: 3px;
+    padding: 8px 10px; font-size: 12px; color: {COLOR_TEXT};
+}}
+#PostForm QLineEdit:focus, #PostForm QTextEdit:focus, #PostForm QDateEdit:focus, #PostForm QComboBox:focus {{
+    border: 1px solid {COLOR_PRIMARY};
+}}
+#PostForm QLineEdit[invalid="true"] {{ background-color: #F7C6C6; border: 1px solid #E57373; }}
+#PostForm QComboBox::drop-down, #PostForm QDateEdit::drop-down {{ border: none; width: 26px; }}
+#PostForm QLabel[role="section"] {{ font-size: 14px; font-weight: bold; color: {COLOR_NAVY}; }}
+#PostForm QLabel[role="field"] {{ font-size: 11px; font-weight: bold; color: {COLOR_NAVY}; }}
+#PostForm QLabel[role="hint"] {{ font-size: 10px; color: {COLOR_SUBTEXT}; }}
+"""
+POST_BLUE_BUTTON_STYLE = """
+QPushButton { background-color: #3374C7; color: white; border: none; border-radius: 10px;
+              padding: 9px 26px; font-size: 12px; font-weight: bold; }
+QPushButton:hover { background-color: #2A63AD; }
+"""
+POST_OUTLINE_BUTTON_STYLE = f"""
+QPushButton {{ background-color: white; color: {COLOR_NAVY}; border: 1px solid #B8C2CC; border-radius: 10px;
+              padding: 9px 26px; font-size: 12px; font-weight: bold; }}
+QPushButton:hover {{ background-color: #F3F6FA; }}
+"""
+POST_TRASH_BUTTON_STYLE = """
+QPushButton { background-color: white; border: 1px solid #E57373; border-radius: 10px; padding: 8px 12px; }
+QPushButton:hover { background-color: #FDECEC; }
+"""
+
+# ---------- Detail Postingan ----------
+POST_CATEGORY_CHIP_STYLE = f"background-color: #E3F1FB; color: {COLOR_PRIMARY}; border: 1px solid #86D6F5; border-radius: 8px; padding: 2px 10px; font-size: 11px;"
+POST_BAND_COLORS = {          # warna pita di atas halaman detail, sesuai status
+    "Ditangguhkan": "#F7DF9B",
+    "Disetujui": "#DDEFC9",
+    "Revisi": "#EBA33A",
+    "Ditolak": "#E8352A",
+}
+POST_BAND_DARK = ("Revisi", "Ditolak")   # pita gelap -> panah kembali berwarna putih
+
+
+def post_box_style(background, border):
+    """Kotak catatan / peringatan di halaman detail postingan."""
+    return f"#PostBox {{ background-color: {background}; border: 1px solid {border}; border-radius: 8px; }}"
+
+
+POST_BOX_YELLOW = post_box_style("#FFF1C9", "#F5C84B")
+POST_BOX_RED = post_box_style("#F7C6C6", "#E57373")
+POST_BOX_GREEN = post_box_style("#E4F5D8", "#9ED17B")
+POST_STAT_DIVIDER_STYLE = "background-color: #C9CED6;"
