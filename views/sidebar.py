@@ -85,9 +85,9 @@ class Sidebar(QFrame):
         self.buttons["bantuan"] = help_button
         for button in (logout_button, help_button):
             button.setProperty("danger", True)
-        logout_button.clicked.connect(lambda: self.logout_clicked.emit())
-        help_button.clicked.connect(lambda: self.help_clicked.emit())
-        self.edit_profile_button.clicked.connect(lambda: self.edit_profile_clicked.emit())
+        logout_button.clicked.connect(self.logout_clicked)
+        help_button.clicked.connect(self.help_clicked)
+        self.edit_profile_button.clicked.connect(self.edit_profile_clicked)
         layout.addWidget(logout_button)
         layout.addWidget(help_button)
 

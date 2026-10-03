@@ -73,7 +73,7 @@ class HelpPage(BasePage):
         self.main_layout.addStretch(2)
 
         # Signal & Slot
-        self.cancel_button.clicked.connect(lambda: self.cancel_clicked.emit())
+        self.cancel_button.clicked.connect(self.cancel_clicked)
         self.call_button.clicked.connect(self.handle_call)
 
     def handle_call(self):

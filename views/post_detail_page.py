@@ -54,7 +54,7 @@ class PostDetailPage(ContentPage):
         layout.addWidget(self.body)
         layout.addStretch()
 
-        self.back_button.clicked.connect(lambda: self.back_clicked.emit())
+        self.back_button.clicked.connect(self.back_clicked)
 
     # ---------- Dibuka dari Dashboard ----------
     def show_post(self, post_id, cancelled=False, salinan=None):
@@ -70,7 +70,7 @@ class PostDetailPage(ContentPage):
         arrow_color = "#FFFFFF" if status in styles.POST_BAND_DARK else config.COLOR_NAVY
         self.band.setStyleSheet(f"background-color: {color};")
         self.back_button.setIcon(icons.make_icon("arrow-left", arrow_color, 26))
-        self.clear_body(self.body_layout)
+        helpers.clear_layout(self.body_layout)
         add = self.body_layout.addWidget
 
         if self.cancelled:
@@ -114,18 +114,6 @@ class PostDetailPage(ContentPage):
         else:   # Ditolak
             self.add_ditolak()
         self.body_layout.addStretch()
-
-    def clear_body(self, layout):
-        """Kosongkan isi halaman SEKARANG, termasuk layout bersarang (tanpa menunggu deleteLater)."""
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.hide()
-                widget.setParent(None)
-                widget.deleteLater()
-            elif item.layout() is not None:
-                self.clear_body(item.layout())
 
     # ---------- Bagian-bagian halaman ----------
     def make_subtitle_text(self):
@@ -251,7 +239,7 @@ class PostDetailPage(ContentPage):
         row.setSpacing(14)
         if self.cancelled:
             back = self.make_button("Kembali", styles.POST_BLUE_BUTTON_STYLE)
-            back.clicked.connect(lambda: self.back_clicked.emit())
+            back.clicked.connect(self.back_clicked)
             row.addWidget(back, 1)
         else:
             edit = self.make_button("Edit postingan", styles.POST_OUTLINE_BUTTON_STYLE, "edit", config.COLOR_NAVY)
@@ -316,8 +304,8 @@ class PostDetailPage(ContentPage):
         row.setSpacing(12)
         new = self.make_button("+  Unggah Lomba Baru", styles.POST_BLUE_BUTTON_STYLE)
         contact = self.make_button("Hubungi Admin", styles.POST_OUTLINE_BUTTON_STYLE)
-        new.clicked.connect(lambda: self.new_post_requested.emit())
-        contact.clicked.connect(lambda: self.contact_admin_requested.emit())
+        new.clicked.connect(self.new_post_requested)
+        contact.clicked.connect(self.contact_admin_requested)
         row.addWidget(new, 2)
         row.addWidget(contact, 1)
         row.addWidget(self.make_trash_button())

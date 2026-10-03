@@ -71,7 +71,7 @@ class PostSuccessPage(BasePage):
         self.main_layout.addWidget(self.status_button, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.main_layout.addStretch(2)
 
-        self.back_button.clicked.connect(lambda: self.back_clicked.emit())
+        self.back_button.clicked.connect(self.back_clicked)
         self.status_button.clicked.connect(lambda: self.view_status_clicked.emit(self.post_id))
 
     def show_post(self, post_id, mode):

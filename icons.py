@@ -1,4 +1,5 @@
 # icons.py — ikon garis sederhana (gaya Feather) yang digambar dari kode SVG
+from functools import lru_cache
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
@@ -27,6 +28,7 @@ ICON_PATHS = {
 }
 
 
+@lru_cache(maxsize=256)   # ikon yang sama (nama+warna+ukuran) cukup digambar SEKALI, lalu dipakai ulang
 def make_icon(name, color="#0F2E6B", size=24):
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
            f'stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'

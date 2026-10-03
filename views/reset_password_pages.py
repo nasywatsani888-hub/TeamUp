@@ -30,7 +30,7 @@ class ForgotPasswordPage(AuthPage):
         self.form_layout.addWidget(self.back_button, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self.send_button.clicked.connect(self.handle_send)
-        self.back_button.clicked.connect(lambda: self.back_clicked.emit())
+        self.back_button.clicked.connect(self.back_clicked)
 
     def handle_send(self):
         email = self.email_input.text().strip()

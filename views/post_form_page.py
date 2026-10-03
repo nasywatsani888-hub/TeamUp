@@ -206,7 +206,7 @@ class PostFormPage(BasePage):
         layout.addStretch()
 
         # Signal & Slot
-        self.back_button.clicked.connect(lambda: self.back_clicked.emit())
+        self.back_button.clicked.connect(self.back_clicked)
         self.submit_button.clicked.connect(self.handle_submit)
         self.link_input.textEdited.connect(lambda: self.set_invalid(self.link_input, False))
 

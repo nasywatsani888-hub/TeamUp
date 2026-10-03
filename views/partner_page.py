@@ -1,6 +1,6 @@
 # views/partner_page.py — halaman Rekan Tim / Temukan Partner
 # Alur: pilih Kategori / Urutkan -> Terapkan -> daftar kandidat -> Kunjungi Profil
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 from views.card_grid import CardGrid
 from views.content_page import ContentPage
@@ -19,6 +19,7 @@ class PartnerCard(QFrame):
 
     def __init__(self, user):
         super().__init__()
+        self.email = user["email"]   # disimpan di objek (bukan ditangkap lambda)
         self.setObjectName("PartnerCard")
         self.setStyleSheet(styles.PARTNER_CARD_STYLE)
         self.setFixedSize(sizes.PARTNER_CARD_WIDTH, sizes.PARTNER_CARD_HEIGHT)
@@ -56,7 +57,11 @@ class PartnerCard(QFrame):
         visit_button.setCursor(Qt.CursorShape.PointingHandCursor)
         layout.addWidget(visit_button, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        visit_button.clicked.connect(lambda: self.profile_clicked.emit(user["email"]))
+        visit_button.clicked.connect(self.send_profile)
+
+    @Slot()
+    def send_profile(self):
+        self.profile_clicked.emit(self.email)
 
 
 class PartnerPage(ContentPage):
@@ -102,7 +107,7 @@ class PartnerPage(ContentPage):
         cards = []
         for user in partners:
             card = PartnerCard(user)
-            card.profile_clicked.connect(lambda email: self.profile_requested.emit(email))
+            card.profile_clicked.connect(self.profile_requested)
             cards.append(card)
         self.card_grid.set_cards(cards)
         self.empty_label.setVisible(len(partners) == 0)

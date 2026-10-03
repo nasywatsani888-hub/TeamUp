@@ -97,7 +97,7 @@ class PartnerProfilePage(ContentPage):
         layout.addLayout(body, 1)
 
         # Signal & Slot: tombol kembali -> kabari DashboardPage
-        self.back_button.clicked.connect(lambda: self.back_clicked.emit())
+        self.back_button.clicked.connect(self.back_clicked)
 
     def make_section(self, title, content_widget):
         """Judul (pil bergaris) di atas kartu biru berisi content_widget."""

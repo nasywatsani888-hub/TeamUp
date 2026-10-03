@@ -44,7 +44,7 @@ class ContentPage(BasePage):
         self.main_layout.addWidget(scroll)
 
         if self.right_panel is not None and hasattr(self.right_panel, "edit_profile_clicked"):
-            self.right_panel.edit_profile_clicked.connect(lambda: self.edit_profile_clicked.emit())
+            self.right_panel.edit_profile_clicked.connect(self.edit_profile_clicked)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

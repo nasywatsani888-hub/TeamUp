@@ -1,6 +1,6 @@
 # views/lomba_detail_page.py — detail satu lomba (dibuka dari Beranda / Lomba / Riwayat)
 import datetime
-from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtCore import Qt, QSize, Signal, Slot
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 from views.content_page import ContentPage
 import config
@@ -18,6 +18,7 @@ class SuggestedPartnerCard(QFrame):
 
     def __init__(self, user):
         super().__init__()
+        self.email = user["email"]   # disimpan di objek (bukan ditangkap lambda)
         self.setObjectName("SuggestedPartnerCard")
         self.setStyleSheet(styles.SUGGESTED_PARTNER_CARD_STYLE)
 
@@ -54,7 +55,11 @@ class SuggestedPartnerCard(QFrame):
         visit_button.setCursor(Qt.CursorShape.PointingHandCursor)
         layout.addWidget(visit_button, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        visit_button.clicked.connect(lambda: self.profile_clicked.emit(user["email"]))
+        visit_button.clicked.connect(self.send_profile)
+
+    @Slot()
+    def send_profile(self):
+        self.profile_clicked.emit(self.email)
 
 
 class SuggestedPartnerPanel(QWidget):
@@ -101,7 +106,7 @@ class SuggestedPartnerPanel(QWidget):
             return
         for user in kandidat:
             card = SuggestedPartnerCard(user)
-            card.profile_clicked.connect(lambda email: self.profile_clicked.emit(email))
+            card.profile_clicked.connect(self.profile_clicked)
             self.cards_layout.addWidget(card)
 
     # Panel ini tidak perlu Widget Lifecycle refresh() tersendiri -- isinya
@@ -116,7 +121,7 @@ class LombaDetailPage(ContentPage):
     def __init__(self):
         super().__init__(right_panel=SuggestedPartnerPanel())
         self.lomba = None   # lomba yang sedang dilihat (diisi lewat show_lomba)
-        self.right_panel.profile_clicked.connect(lambda email: self.partner_disarankan_clicked.emit(email))
+        self.right_panel.profile_clicked.connect(self.partner_disarankan_clicked)
 
         layout = QVBoxLayout(self.center)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -208,7 +213,7 @@ class LombaDetailPage(ContentPage):
         layout.addLayout(body, 1)
 
         # Signal & Slot: tombol kembali -> kabari DashboardPage
-        self.back_button.clicked.connect(lambda: self.back_clicked.emit())
+        self.back_button.clicked.connect(self.back_clicked)
 
     def make_info_box(self, title, value_label):
         """Judul (pil oranye) di atas kotak kuning berisi satu nilai."""

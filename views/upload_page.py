@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QPushB
 from views.base_page import BasePage
 import config
 import data_store
+import helpers
 import styles
 import sizes
 
@@ -169,20 +170,11 @@ class UploadPage(BasePage):
         self.select_status("Semua")
 
     # ---------- Tampilan ----------
-    def clear_list(self):
-        """Kosongkan daftar SEKARANG (tidak menunggu deleteLater) supaya tidak sempat tampil dobel."""
-        while self.list_layout.count():
-            widget = self.list_layout.takeAt(0).widget()
-            if widget is not None:
-                widget.hide()
-                widget.setParent(None)
-                widget.deleteLater()
-
     def show_posts(self):
         counts = data_store.hitung_postingan()
         for name, chip in self.chips.items():
             chip.setText(f"{name} ({counts[name]})")
-        self.clear_list()
+        helpers.clear_layout(self.list_layout)
         posts = data_store.get_postingan(self.status_filter)
         if len(posts) == 0:
             empty = QLabel("Belum ada postingan dengan status ini.")
@@ -191,7 +183,7 @@ class UploadPage(BasePage):
             return
         for post in posts:
             item = PostItem(post)
-            item.clicked.connect(self.post_clicked.emit)
+            item.clicked.connect(self.post_clicked)
             self.list_layout.addWidget(item)
 
     # Widget Lifecycle: daftar di-refresh tiap halaman tampil; saat ditinggalkan, kembali ke awal

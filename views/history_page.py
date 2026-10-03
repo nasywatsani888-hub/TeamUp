@@ -96,7 +96,7 @@ class HistoryPage(BasePage):
             return
         for lomba in items:
             item = HistoryItem(lomba)
-            item.clicked.connect(lambda lomba_id: self.lomba_detail_clicked.emit(lomba_id))
+            item.clicked.connect(self.lomba_detail_clicked)
             self.list_layout.addWidget(item)
 
     # Widget Lifecycle: daftar di-refresh setiap halaman tampil (mis. kembali dari detail lomba)

@@ -117,8 +117,8 @@ class AuthPage(BasePage):
             tab.setCursor(Qt.CursorShape.PointingHandCursor)
             row.addWidget(tab)
 
-        login_tab.clicked.connect(lambda: self.go_login.emit())
-        register_tab.clicked.connect(lambda: self.go_register.emit())
+        login_tab.clicked.connect(self.go_login)
+        register_tab.clicked.connect(self.go_register)
         self.form_layout.addSpacing(10)
         self.form_layout.addWidget(box, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.form_layout.addSpacing(14)

@@ -73,7 +73,7 @@ class HomePage(ContentPage):
         layout.addStretch()
 
         # Signal & Slot
-        self.find_partner_button.clicked.connect(lambda: self.find_partner_clicked.emit())
+        self.find_partner_button.clicked.connect(self.find_partner_clicked)
 
     def show_lomba_terbaru(self):
         """Bangun ulang kartu lomba di Beranda dari data_store.lomba_list saat ini."""
@@ -81,7 +81,7 @@ class HomePage(ContentPage):
         for lomba in data_store.lomba_list[:4]:
             card = LombaCard(lomba)
             card.setFixedWidth(sizes.LOMBA_CARD_WIDTH)
-            card.detail_clicked.connect(lambda lomba_id: self.lomba_detail_clicked.emit(lomba_id))
+            card.detail_clicked.connect(self.lomba_detail_clicked)
             cards.append(card)
         self.card_grid.set_cards(cards)
 

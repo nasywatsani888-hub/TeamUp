@@ -39,7 +39,7 @@ class LombaPage(ContentPage):
         self.fit_height()
 
         # Signal & Slot: QML minta buka detail -> teruskan ke dashboard
-        self.backend.detailRequested.connect(self.lomba_detail_clicked.emit)
+        self.backend.detailRequested.connect(self.lomba_detail_clicked)
 
     def fit_height(self):
         if self.root_item is not None:

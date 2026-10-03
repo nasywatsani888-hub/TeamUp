@@ -1,6 +1,7 @@
 # main.py — titik masuk aplikasi TeamUp
 # MainWindow = "pusat listener": semua halaman mengirim signal ke sini,
 # lalu MainWindow yang menentukan halaman berikutnya (loose coupling).
+import gc
 import os
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 import sys
@@ -11,6 +12,7 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QStackedWi
 import config
 import styles
 import data_store
+import helpers
 from views.login_page import LoginPage
 from views.register_page import RegisterPage
 from views.success_page import SuccessPage
@@ -118,6 +120,10 @@ class MainWindow(QMainWindow):
     def handle_logout(self):
         # Konfirmasi "Yakin mau keluar?" sudah dijawab di DashboardPage; di sini tinggal keluar
         data_store.current_user = None
+        # Pembersihan manual: lepas cache gambar milik user lama, lalu paksa garbage collector
+        # menyapu objek yang sudah tidak terpakai (aman dilakukan di sini karena user sedang menunggu splash).
+        helpers.clear_image_cache()
+        gc.collect()
         self.show_page(self.splash_page)                                    # logo TeamUp sebentar
         QTimer.singleShot(1500, lambda: self.show_page(self.login_page))    # lalu Halaman Login
 

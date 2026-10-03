@@ -44,14 +44,16 @@ def center_on_parent(dialog):
 
 class ConfirmDialog(QDialog):
     """Dialog konfirmasi. exec() == Accepted -> tombol konfirmasi; Rejected -> Kembali / X.
-    tone='batalkan' (oranye-kuning) atau 'hapus' (merah)."""
+    tone='batalkan' (oranye-kuning) atau 'hapus' (merah).
+    Objek ini DIPAKAI ULANG (object pooling): dibuat sekali per tone, lalu isinya diganti lewat
+    set_content() -> tidak membangun belasan widget & koneksi baru setiap kali dialog dibuka."""
 
     TONES = {
         "batalkan": {"icon_bg": "#FBD9A8", "icon": "#E8892B", "box": styles.POST_BOX_YELLOW, "warn": "#E8892B"},
         "hapus": {"icon_bg": "#F4A3A3", "icon": "#D9534F", "box": styles.POST_BOX_RED, "warn": "#D9534F"},
     }
 
-    def __init__(self, parent, title, pertanyaan_awal, judul_lomba, peringatan, confirm_text, tone="batalkan"):
+    def __init__(self, parent, tone="batalkan"):
         super().__init__(parent)
         colors = self.TONES[tone]
         layout = make_card(self, sizes.CONFIRM_DIALOG_WIDTH, sizes.CONFIRM_DIALOG_HEIGHT, styles.MODAL_CARD_STYLE)
@@ -66,14 +68,13 @@ class ConfirmDialog(QDialog):
         icon_label.setPixmap(icons.make_icon("trash", colors["icon"], 26).pixmap(26, 26))
         layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        title_label = QLabel(title)
-        title_label.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {config.COLOR_NAVY};")
-        message = QLabel(f'{html.escape(pertanyaan_awal)} <b style="color:{config.COLOR_PRIMARY}">'
-                         f'{html.escape(judul_lomba)}</b>?')
-        message.setTextFormat(Qt.TextFormat.RichText)
-        message.setStyleSheet("font-size: 12px;")
-        message.setWordWrap(True)
-        for label in (title_label, message):
+        self.title_label = QLabel()
+        self.title_label.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {config.COLOR_NAVY};")
+        self.message_label = QLabel()
+        self.message_label.setTextFormat(Qt.TextFormat.RichText)
+        self.message_label.setStyleSheet("font-size: 12px;")
+        self.message_label.setWordWrap(True)
+        for label in (self.title_label, self.message_label):
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             layout.addWidget(label)
         layout.addSpacing(6)
@@ -87,11 +88,11 @@ class ConfirmDialog(QDialog):
         box_row.setSpacing(10)
         warn_icon = QLabel("⚠")
         warn_icon.setStyleSheet(f"font-size: 18px; color: {colors['warn']}; background: transparent;")
-        warn_text = QLabel(peringatan)
-        warn_text.setWordWrap(True)
-        warn_text.setStyleSheet("font-size: 11px; background: transparent;")
+        self.warn_text = QLabel()
+        self.warn_text.setWordWrap(True)
+        self.warn_text.setStyleSheet("font-size: 11px; background: transparent;")
         box_row.addWidget(warn_icon, alignment=Qt.AlignmentFlag.AlignTop)
-        box_row.addWidget(warn_text, 1)
+        box_row.addWidget(self.warn_text, 1)
         layout.addWidget(box)
         layout.addStretch()
 
@@ -99,17 +100,24 @@ class ConfirmDialog(QDialog):
         buttons.setSpacing(12)
         self.back_button = QPushButton("Kembali")
         self.back_button.setStyleSheet(styles.POST_OUTLINE_BUTTON_STYLE)
-        self.confirm_button = QPushButton(confirm_text)
+        self.confirm_button = QPushButton()
         self.confirm_button.setStyleSheet(styles.POST_BLUE_BUTTON_STYLE)
         for button in (self.back_button, self.confirm_button):
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             buttons.addWidget(button)
         layout.addLayout(buttons)
 
-        # Signal & Slot bawaan QDialog
+        # Signal & Slot bawaan QDialog (disambung SEKALI, karena dialog dipakai ulang)
         close_button.clicked.connect(self.reject)
         self.back_button.clicked.connect(self.reject)
         self.confirm_button.clicked.connect(self.accept)
+
+    def set_content(self, title, pertanyaan_awal, judul_lomba, peringatan, confirm_text):
+        self.title_label.setText(title)
+        self.message_label.setText(f'{html.escape(pertanyaan_awal)} <b style="color:{config.COLOR_PRIMARY}">'
+                                   f'{html.escape(judul_lomba)}</b>?')
+        self.warn_text.setText(peringatan)
+        self.confirm_button.setText(confirm_text)
 
     def showEvent(self, event):
         super().showEvent(event)

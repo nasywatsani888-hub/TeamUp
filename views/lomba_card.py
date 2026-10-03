@@ -1,5 +1,5 @@
 # views/lomba_card.py — kartu lomba (dipakai di Beranda dan halaman Lomba)
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 import config
 import helpers
@@ -12,6 +12,7 @@ class LombaCard(QFrame):
 
     def __init__(self, lomba):
         super().__init__()
+        self.lomba_id = lomba["id"]   # disimpan di objek (bukan ditangkap lambda)
         self.setObjectName("LombaCard")
         self.setStyleSheet(styles.LOMBA_CARD_STYLE)
         self.setMinimumWidth(sizes.LOMBA_CARD_MIN_WIDTH)
@@ -59,4 +60,8 @@ class LombaCard(QFrame):
         info.addLayout(footer)
 
         # Signal & Slot: tombol -> kirim id lomba
-        detail_button.clicked.connect(lambda: self.detail_clicked.emit(lomba["id"]))
+        detail_button.clicked.connect(self.send_detail)
+
+    @Slot()
+    def send_detail(self):
+        self.detail_clicked.emit(self.lomba_id)

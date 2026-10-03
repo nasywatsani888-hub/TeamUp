@@ -16,4 +16,4 @@ class SuccessPage(AuthPage):
 
         self.button = helpers.make_primary_button(button_text)
         self.form_layout.addWidget(self.button)
-        self.button.clicked.connect(lambda: self.button_clicked.emit())
+        self.button.clicked.connect(self.button_clicked)

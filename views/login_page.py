@@ -84,8 +84,8 @@ QPushButton:hover {{ background-color: {config.COLOR_PRIMARY_HOVER}; }}
 
         # Signal & Slot: tombol (clicked) -> listener
         self.login_button.clicked.connect(self.handle_login)
-        self.forgot_button.clicked.connect(lambda: self.forgot_password_clicked.emit())
-        self.admin_button.clicked.connect(lambda: self.admin_login_clicked.emit())
+        self.forgot_button.clicked.connect(self.forgot_password_clicked)
+        self.admin_button.clicked.connect(self.admin_login_clicked)
 
     def handle_login(self):
         email = self.email_input.text().strip()

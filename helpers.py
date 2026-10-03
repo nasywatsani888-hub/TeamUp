@@ -1,5 +1,6 @@
 # helpers.py — komponen kecil yang dipakai berulang
 import os
+from functools import lru_cache
 from PySide6.QtCore import Qt, QPointF, QSize
 from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QPushButton, QLineEdit, QFrame, QHBoxLayout, QVBoxLayout, QWidget
@@ -76,14 +77,46 @@ def is_valid_password(password):
     return len(password) >= 8 and has_letter and has_digit
 
 
+# ---------- Cache gambar (optimasi RAM & CPU) ----------
+# QPixmap berbagi data secara implisit (copy-on-write), jadi satu pixmap boleh dipasang ke banyak
+# QLabel tanpa menggandakan memori. lru_cache(maxsize=...) membatasi jumlahnya: kalau penuh,
+# yang paling lama tidak dipakai dibuang -> cache tidak tumbuh tanpa batas.
+# 'mtime' (waktu ubah file) ikut jadi kunci, jadi kalau foto diganti otomatis dimuat ulang.
+@lru_cache(maxsize=64)
+def _pixmap_lebar(path, width, mtime):
+    return QPixmap(path).scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)
+
+
+@lru_cache(maxsize=64)
+def _pixmap_foto(path, size, radius, mtime):
+    """Foto persegi dipotong bertepi membulat; radius = size // 2 menghasilkan lingkaran."""
+    source = QPixmap(path).scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                  Qt.TransformationMode.SmoothTransformation)
+    result = QPixmap(size, size)
+    result.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(result)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    clip.addRoundedRect(0, 0, size, size, radius, radius)
+    painter.setClipPath(clip)
+    painter.drawPixmap((size - source.width()) // 2, (size - source.height()) // 2, source)
+    painter.end()
+    return result
+
+
+def clear_image_cache():
+    """Kosongkan cache gambar (manual), mis. setelah logout atau saat RAM ingin dilepas."""
+    _pixmap_lebar.cache_clear()
+    _pixmap_foto.cache_clear()
+
+
 def make_image(filename, width, fallback_text="", fallback_size=None):
     """Gambar dari folder assets. Kalau file belum ada, tampilkan teks/emoji pengganti."""
     label = QLabel()
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     path = os.path.join(config.ASSETS_DIR, filename)
     if os.path.exists(path):
-        pixmap = QPixmap(path).scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)
-        label.setPixmap(pixmap)
+        label.setPixmap(_pixmap_lebar(path, width, os.path.getmtime(path)))
     else:
         label.setText(fallback_text)
         label.setStyleSheet(f"font-size: {fallback_size or width // 2}px;")
@@ -118,12 +151,19 @@ def make_logo(width=420, name_size=60, tagline_size=14):
 
 
 def clear_layout(layout):
-    """Hapus semua widget di dalam sebuah layout."""
+    """Kosongkan layout SEKARANG: widget disembunyikan, dilepas dari induknya, lalu dihapus
+    (deleteLater). Layout bersarang (addLayout) ikut dibersihkan secara rekursif, karena kalau
+    hanya widget langsung yang dihapus, widget di dalam sub-layout tertinggal dan menumpuk."""
     while layout.count():
         item = layout.takeAt(0)
         widget = item.widget()
         if widget is not None:
+            widget.hide()
+            widget.setParent(None)
             widget.deleteLater()
+        elif item.layout() is not None:
+            clear_layout(item.layout())
+            item.layout().deleteLater()
 
 
 def format_sisa(days, use_weeks=False):
@@ -230,18 +270,7 @@ def make_avatar(user, size):
 
     path = os.path.join(config.ASSETS_DIR, "foto", user.get("foto", ""))
     if user.get("foto") and os.path.exists(path):
-        source = QPixmap(path).scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                                      Qt.TransformationMode.SmoothTransformation)
-        round_pixmap = QPixmap(size, size)
-        round_pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(round_pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        clip = QPainterPath()
-        clip.addEllipse(0, 0, size, size)
-        painter.setClipPath(clip)
-        painter.drawPixmap((size - source.width()) // 2, (size - source.height()) // 2, source)
-        painter.end()
-        label.setPixmap(round_pixmap)
+        label.setPixmap(_pixmap_foto(path, size, size // 2, os.path.getmtime(path)))   # lingkaran
     else:
         words = user["nama"].split()
         initials = "".join(word[0] for word in words[:2]).upper()
@@ -260,18 +289,7 @@ def make_photo_square(user, size, radius=16):
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     path = os.path.join(config.ASSETS_DIR, "foto", user.get("foto", ""))
     if user.get("foto") and os.path.exists(path):
-        source = QPixmap(path).scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                                      Qt.TransformationMode.SmoothTransformation)
-        rounded = QPixmap(size, size)
-        rounded.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(rounded)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        clip = QPainterPath()
-        clip.addRoundedRect(0, 0, size, size, radius, radius)
-        painter.setClipPath(clip)
-        painter.drawPixmap((size - source.width()) // 2, (size - source.height()) // 2, source)
-        painter.end()
-        label.setPixmap(rounded)
+        label.setPixmap(_pixmap_foto(path, size, radius, os.path.getmtime(path)))   # persegi membulat
     else:
         words = user["nama"].split()
         label.setText("".join(word[0] for word in words[:2]).upper())
