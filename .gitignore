@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 assets/postingan/
+*.swp
+*.swo
+*.zip
