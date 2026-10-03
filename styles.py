@@ -128,8 +128,8 @@ SIDEBAR_STYLE = f"""
 SEARCH_STYLE = "#SearchBar { background-color: #E4F6FD; border: none; border-radius: 22px; padding: 12px 18px; font-size: 15px; }"
 BANNER_STYLE = "#Banner { background-color: #A8E4FB; border-radius: 24px; }"
 BANNER_BUTTON_STYLE = """
-QPushButton { background-color: #4FC8F7; color: white; border: none; border-radius: 22px;
-              padding: 14px 44px; font-size: 16px; font-weight: bold; }
+QPushButton { background-color: #4FC8F7; color: white; border: none; border-radius: 17px;
+              padding: 0 24px; font-size: 14px; font-weight: bold; }
 QPushButton:hover { background-color: #33B9EE; }
 """
 LOMBA_CARD_STYLE = "#LombaCard { background-color: #FFE08F; border-radius: 20px; }"
