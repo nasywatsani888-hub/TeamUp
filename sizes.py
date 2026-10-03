@@ -11,8 +11,9 @@
 #   sidebar.setFixedWidth(sizes.SIDEBAR_WIDTH)
 
 # ---------- Kerangka dashboard (sidebar & panel kanan) ----------
-SIDEBAR_WIDTH = 270            # views/sidebar.py
+SIDEBAR_WIDTH = 242             # views/sidebar.py
 RIGHT_PANEL_WIDTH = 360        # panel Rekomendasi Rekan di views/lomba_detail_page.py
+RIGHT_PANEL_BREAKPOINT = 960   # lebar halaman isi di bawah ini -> kolom kanan disembunyikan
 SIDEBAR_PROFILE_HEIGHT = 84      # tinggi kartu profil di sidebar
 SIDEBAR_AVATAR_SIZE = 48         # views/sidebar.py (kartu profil di sidebar)
 CONTENT_MARGIN = 32            # jarak tepi kolom tengah di tiap halaman dashboard

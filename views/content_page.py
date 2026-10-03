@@ -2,6 +2,7 @@
 # Kolom tengah bisa di-scroll atas-bawah saja (kanan-kiri dikunci).
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QWidget
+import sizes
 from views.base_page import BasePage
 
 
@@ -26,6 +27,7 @@ class ContentPage(BasePage):
 
         self.center = QWidget()      # halaman turunan mengisi kolom tengah ini
         divider = QFrame()
+        self.divider = divider
         divider.setFixedWidth(1)
         divider.setStyleSheet("background-color: #E5E7EB;")
         # Panel kanan: default TIDAK ADA (kartu profil sudah pindah ke sidebar kiri).
@@ -43,6 +45,13 @@ class ContentPage(BasePage):
 
         if self.right_panel is not None and hasattr(self.right_panel, "edit_profile_clicked"):
             self.right_panel.edit_profile_clicked.connect(lambda: self.edit_profile_clicked.emit())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        show_side = event.size().width() >= sizes.RIGHT_PANEL_BREAKPOINT
+        for widget in (getattr(self, "divider", None), getattr(self, "right_panel", None)):
+            if widget is not None and self.isAncestorOf(widget):
+                widget.setVisible(show_side)
 
     # Widget Lifecycle: panel kanan selalu di-refresh (kalau punya refresh()), lalu isi halaman turunan
     def on_show(self):

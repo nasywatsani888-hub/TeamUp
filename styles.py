@@ -118,7 +118,7 @@ SIDEBAR_STYLE = f"""
 #Sidebar {{ background-color: white; border-right: 1px solid #E5E7EB; }}
 #Sidebar QPushButton {{
     background-color: #E4F6FD; color: {COLOR_NAVY}; border: none; border-radius: 16px;
-    padding: 12px 16px; text-align: left; font-size: 15px; font-weight: bold;
+    padding: 12px 14px; text-align: left; font-size: 15px; font-weight: bold;
 }}
 #Sidebar QPushButton:hover {{ background-color: #CFEFFC; }}
 #Sidebar QPushButton[active="true"] {{ background-color: #FFC71F; }}

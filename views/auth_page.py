@@ -69,7 +69,7 @@ class AuthPage(BasePage):
         split.addWidget(right, 1)
 
     def make_logo(self):
-        return helpers.make_logo()
+        return helpers.make_logo(width=370, name_size=56, tagline_size=11)
 
     # --- Potongan yang dipakai ulang oleh halaman turunan ---
     def add_title(self, title, subtitle="", title_size=None, subtitle_size=None):

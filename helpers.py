@@ -91,21 +91,29 @@ def make_image(filename, width, fallback_text="", fallback_size=None):
 
 
 def make_logo(width=420, name_size=60, tagline_size=14):
-    """Logo TeamUp: pakai assets/logo.png kalau ada, kalau tidak pakai teks."""
-    if os.path.exists(os.path.join(config.ASSETS_DIR, "logo.png")):
-        return make_image("logo.png", width)
+    """Logo TeamUp = gambar ikon (assets/logo.png: huruf T + burung) di kiri,
+    lalu tulisan "TeamUp" dan tagline yang diketik lewat kode di kanannya."""
     box = QWidget()
-    layout = QVBoxLayout(box)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(2)
+    row = QHBoxLayout(box)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(max(6, name_size // 5))
+
+    if os.path.exists(os.path.join(config.ASSETS_DIR, "logo.png")):
+        row.addWidget(make_image("logo.png", int(name_size * 1.7)))   # tinggi ikon ~ tinggi tulisan
+
+    text_box = QWidget()
+    text_layout = QVBoxLayout(text_box)
+    text_layout.setContentsMargins(0, 0, 0, 0)
+    text_layout.setSpacing(0)
     name = QLabel(
         f'<span style="color:{config.COLOR_LOGO_DARK}">Team</span>'
         f'<span style="color:{config.COLOR_LOGO_LIGHT}">Up</span>')
     name.setStyleSheet(f"font-size: {name_size}px; font-weight: bold;")
     tagline = QLabel("FIND YOUR PEOPLE, BUILD YOUR TEAM")
     tagline.setStyleSheet(f"font-size: {tagline_size}px; font-weight: bold; color: {config.COLOR_NAVY};")
-    layout.addWidget(name, alignment=Qt.AlignmentFlag.AlignCenter)
-    layout.addWidget(tagline, alignment=Qt.AlignmentFlag.AlignCenter)
+    text_layout.addWidget(name)
+    text_layout.addWidget(tagline)
+    row.addWidget(text_box)
     return box
 
 

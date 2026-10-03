@@ -36,7 +36,7 @@ class Sidebar(QFrame):
         layout.setContentsMargins(20, 24, 20, 24)
         layout.setSpacing(10)
 
-        layout.addWidget(helpers.make_logo(width=190, name_size=34, tagline_size=9),
+        layout.addWidget(helpers.make_logo(width=190, name_size=28, tagline_size=8),
                          alignment=Qt.AlignmentFlag.AlignLeft)
         layout.addSpacing(24)
 
