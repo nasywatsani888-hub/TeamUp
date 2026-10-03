@@ -1,6 +1,6 @@
 # views/home_page.py — Beranda (isi utama dashboard)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout
 from views.card_grid import CardGrid
 from views.content_page import ContentPage
 from views.lomba_card import LombaCard
@@ -39,28 +39,40 @@ class HomePage(ContentPage):
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
-        # Banner
+        # Banner (ukuran dan teks mengikuti desain Figma: tinggi 186, judul + deskripsi + tombol)
         banner = QFrame()
         banner.setObjectName("Banner")
         banner.setStyleSheet(styles.BANNER_STYLE)
-        banner.setMinimumHeight(230)
+        banner.setFixedHeight(sizes.BANNER_HEIGHT)
         banner_row = QHBoxLayout(banner)
-        banner_row.setContentsMargins(32, 24, 32, 24)
+        banner_row.setContentsMargins(41, 16, 48, 16)
         banner_text = QVBoxLayout()
+        banner_text.setSpacing(0)
         banner_text.addStretch()
         banner_label = QLabel("Temukan rekan kompetisi yang sempurna untuk Anda!")
-        banner_label.setStyleSheet(f"font-size: 22px; font-weight: bold; color: {config.COLOR_NAVY};")
+        banner_label.setStyleSheet(f"font-size: 15px; font-weight: bold; color: {config.COLOR_NAVY};")
         banner_label.setWordWrap(True)
+        banner_desc = QLabel("Berdasarkan skill, minat dan tujuan kompetisimu, kami bantu carikan rekan yang cocok denganmu!")
+        banner_desc.setStyleSheet("font-size: 12px;")
+        banner_desc.setWordWrap(True)
         self.find_partner_button = QPushButton("Temukan Partner")
         self.find_partner_button.setStyleSheet(styles.BANNER_BUTTON_STYLE)
         self.find_partner_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.find_partner_button.setFixedHeight(sizes.BANNER_BUTTON_HEIGHT)
+        self.find_partner_button.setMaximumWidth(sizes.BANNER_BUTTON_WIDTH)
+        self.find_partner_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        button_row = QHBoxLayout()           # tombol di tengah, mengecil kalau ruangnya sempit
+        button_row.addStretch(1)
+        button_row.addWidget(self.find_partner_button, 10)
+        button_row.addStretch(1)
         banner_text.addWidget(banner_label)
-        banner_text.addSpacing(16)
-        banner_text.addWidget(self.find_partner_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        banner_text.addSpacing(6)
+        banner_text.addWidget(banner_desc)
+        banner_text.addSpacing(18)
+        banner_text.addLayout(button_row)
         banner_text.addStretch()
-        banner_row.addLayout(banner_text)
-        banner_row.addStretch()
-        banner_row.addWidget(helpers.make_image("banner_burung.png", 280, "🦜🦜🦜🦜", 56))
+        banner_row.addLayout(banner_text, 1)   # kolom teks memakai sisa lebar (tidak terjepit gambar)
+        banner_row.addWidget(helpers.make_image("banner_burung.png", sizes.BANNER_IMAGE_WIDTH, "🦜🦜🦜🦜", 56))
         layout.addWidget(banner)
 
         # Kartu lomba: pakai CardGrid (bukan QHBoxLayout biasa) supaya kolomnya
