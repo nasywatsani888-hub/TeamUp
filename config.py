@@ -5,8 +5,8 @@ APP_NAME = "TeamUp"
 WINDOW_WIDTH = 1320
 WINDOW_HEIGHT = 720
 # Lebar minimum: di bawah ini isi dashboard tidak muat (tanpa scroll kanan-kiri)
-WINDOW_MIN_WIDTH = 900
-WINDOW_MIN_HEIGHT = 500
+WINDOW_MIN_WIDTH = 1000
+WINDOW_MIN_HEIGHT = 600
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")

@@ -2,6 +2,7 @@
 # MainWindow = "pusat listener": semua halaman mengirim signal ke sini,
 # lalu MainWindow yang menentukan halaman berikutnya (loose coupling).
 import os
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 import sys
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFontDatabase

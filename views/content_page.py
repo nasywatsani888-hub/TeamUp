@@ -49,9 +49,10 @@ class ContentPage(BasePage):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         show_side = event.size().width() >= sizes.RIGHT_PANEL_BREAKPOINT
-        self.divider.setVisible(show_side)
-        self.right_panel.setVisible(show_side)
-        
+        for widget in (getattr(self, "divider", None), getattr(self, "right_panel", None)):
+            if widget is not None and self.isAncestorOf(widget):
+                widget.setVisible(show_side)
+
     # Widget Lifecycle: panel kanan selalu di-refresh (kalau punya refresh()), lalu isi halaman turunan
     def on_show(self):
         if self.right_panel is not None and hasattr(self.right_panel, "refresh"):
