@@ -20,7 +20,12 @@ class LombaBackend(QObject):
     # ---- data untuk QML (property + notify = binding otomatis) ----
     @Property(list, notify=changed)
     def lomba(self):
-        return data_store.get_lomba_filter(self._filters, self._order)
+        hasil = []
+        for lomba in data_store.get_lomba_filter(self._filters, self._order):
+            item = dict(lomba)   # salinan, supaya data asli tidak ikut berubah
+            item["poster_url"] = helpers.poster_url(lomba, sizes.LOMBA_CARD_WIDTH, sizes.LOMBA_POSTER_HEIGHT, 20)
+            hasil.append(item)
+        return hasil
 
     @Property("QVariantMap", notify=changed)
     def selectedFilters(self):

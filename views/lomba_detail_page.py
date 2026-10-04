@@ -1,6 +1,8 @@
 # views/lomba_detail_page.py — detail satu lomba (dibuka dari Beranda / Lomba / Riwayat)
 import datetime
+import os
 from PySide6.QtCore import Qt, QSize, Signal, Slot
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 from views.content_page import ContentPage
 import config
@@ -259,10 +261,18 @@ class LombaDetailPage(ContentPage):
         if lomba is None:
             return
         self.title_label.setText(lomba["judul"] + " - " + lomba["kategori"])
-        self.poster_label.setText(lomba["judul"].upper())
-        self.poster_label.setStyleSheet(
-            f"background-color: {lomba['warna']}; color: white; border-radius: 16px; "
-            "padding: 12px; font-size: 18px; font-weight: bold;")
+        poster = helpers.poster_file(lomba)
+        if poster:   # gambar poster asli
+            self.poster_label.setStyleSheet("")
+            self.poster_label.setText("")
+            self.poster_label.setPixmap(helpers._pixmap_poster(
+                poster, sizes.DETAIL_POSTER_WIDTH, sizes.DETAIL_POSTER_HEIGHT, 16, True, os.path.getmtime(poster)))
+        else:        # cadangan: blok warna + judul
+            self.poster_label.setPixmap(QPixmap())
+            self.poster_label.setText(lomba["judul"].upper())
+            self.poster_label.setStyleSheet(
+                f"background-color: {lomba['warna']}; color: white; border-radius: 16px; "
+                "padding: 12px; font-size: 18px; font-weight: bold;")
         self.organizer_label.setText("Diselenggarakan oleh " + lomba["penyelenggara"])
         self.days_badge.setText(helpers.format_sisa(lomba["sisa_hari"]))
 

@@ -121,13 +121,15 @@ lomba_list = [
                 "Esai orisinal dan belum pernah dipublikasikan.",
                 "Panjang esai 1.000-1.500 kata."],
      "link": "https://example.com/essay-daftar", "diunggah_hari_lalu": 3, "dilihat": 45},
-    {"id": 4, "judul": "Lomba Debat Bahasa", "penyelenggara": "UKM Bahasa",
-     "kategori": "Debat", "sisa_hari": 5, "warna": "#5B2A6B",
-     "tanggal_pelaksanaan": "1 November 2026", "anggota_tim": "3 Anggota",
-     "deskripsi": "Debat bahasa Indonesia format parlementer antar universitas.",
-     "syarat": ["Peserta merupakan mahasiswa aktif.",
-                "Satu tim terdiri dari 3 orang dari universitas yang sama."],
-     "link": "https://example.com/debat-daftar", "diunggah_hari_lalu": 14, "dilihat": 88},
+    {"id": 4, "judul": "Byteon Coding Championship", "penyelenggara": "HMIT ITS",
+     "kategori": "Coding", "sisa_hari": 2, "warna": "#0F3B2E",
+     "tanggal_pelaksanaan": "27 Januari 2027", "anggota_tim": "2-3 Anggota",
+     "deskripsi": "Kompetisi pemrograman kompetitif tingkat nasional. Peserta menyelesaikan soal "
+                  "algoritma dan struktur data dalam waktu terbatas.",
+     "syarat": ["Peserta merupakan mahasiswa aktif D3/S1.",
+                "Satu tim terdiri dari 2-3 orang.",
+                "Peserta wajib membawa laptop sendiri."],
+     "link": "https://example.com/byteon-daftar", "diunggah_hari_lalu": 14, "dilihat": 88},
     {"id": 5, "judul": "Hackathon Competition 2026", "penyelenggara": "Dev Community",
      "kategori": "Hackathon", "sisa_hari": 14, "warna": "#0E4D64",
      "tanggal_pelaksanaan": "28 - 29 November 2026", "anggota_tim": "2-4 Anggota",
@@ -151,6 +153,20 @@ _ATRIBUT_FILTER = {
 }
 for _lomba in lomba_list:
     _lomba.update(_ATRIBUT_FILTER.get(_lomba["id"], {}))
+
+# Gambar poster tiap lomba: taruh file-nya di folder assets/poster/. Yang ditulis di sini adalah
+# NAMA FILE TANPA EKSTENSI (boleh png / jpg / jpeg / webp). Satu lomba boleh punya beberapa nama
+# alternatif; yang pertama ditemukan di folder itulah yang dipakai.
+# Kalau tidak ada satu pun, aplikasi otomatis memakai blok warna + judul sebagai cadangan.
+_POSTER = {
+    1: ["robotics", "robotik"],                                   # Code & Create: Robotics
+    2: ["uiux", "informatic", "informatik"],                      # Lomba UI/UX Nasional
+    3: ["essay"],                                                 # Lomba Essay Kesehatan
+    4: ["byteon"],                                                # Byteon Coding Championship
+    5: ["zephyr", "zackhaton", "zakhaton", "hackathon"],          # Hackathon Competition
+}
+for _lomba in lomba_list:
+    _lomba["poster"] = _POSTER.get(_lomba["id"], [])
 
 # Grup Filter Lomba: (kunci, judul, pilihan, hanya_satu). "Semua" = tanpa batasan.
 FILTER_LOMBA_GRUP = [
@@ -381,6 +397,7 @@ KATEGORI_LOMBA_KEAHLIAN = {
     "Robotics": ["robot", "elektro", "mekanik", "embedded", "hardware", "programmer"],
     "UI/UX": ["ui/ux", "ui ux", "desain", "design", "ilustrasi"],
     "Essay": ["essay", "menulis", "penulis", "riset"],
+    "Coding": ["programmer", "coding", "developer", "backend", "frontend", "algoritma", "web"],
     "Debat": ["debat", "public speaking", "komunikasi"],
     "Hackathon": ["programmer", "developer", "frontend", "backend", "coding", "fullstack"],
 }

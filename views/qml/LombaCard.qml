@@ -17,16 +17,26 @@ Rectangle {
         width: parent.width
         spacing: 0
 
-        // Poster sementara: blok warna + judul (sudut atas bulat, bawah lurus)
+        // Poster: gambar asli (sudah dipotong & dibulatkan di Python) kalau ada; kalau belum,
+        // blok warna + judul sebagai cadangan (sudut atas bulat, bawah lurus)
         Item {
             Layout.fillWidth: true
             Layout.preferredHeight: lombaBackend.posterHeight
-            Rectangle { anchors.fill: parent; radius: 20; color: card.lomba.warna }
+            Image {
+                anchors.fill: parent
+                visible: card.lomba.poster_url !== ""
+                source: card.lomba.poster_url
+                fillMode: Image.Stretch      // ukurannya sudah pas dari Python
+                smooth: true; mipmap: true
+            }
+            Rectangle { visible: card.lomba.poster_url === ""; anchors.fill: parent; radius: 20; color: card.lomba.warna }
             Rectangle {
+                visible: card.lomba.poster_url === ""
                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
                 height: 20; color: card.lomba.warna
             }
             AppText {
+                visible: card.lomba.poster_url === ""
                 anchors.fill: parent; anchors.margins: 16
                 text: card.lomba.judul.toUpperCase()
                 color: "white"; font.pixelSize: 20; font.bold: true

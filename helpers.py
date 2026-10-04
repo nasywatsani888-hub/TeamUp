@@ -1,7 +1,9 @@
 # helpers.py — komponen kecil yang dipakai berulang
+import hashlib
 import os
+import tempfile
 from functools import lru_cache
-from PySide6.QtCore import Qt, QPointF, QSize
+from PySide6.QtCore import Qt, QPointF, QSize, QUrl
 from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QPushButton, QLineEdit, QFrame, QHBoxLayout, QVBoxLayout, QWidget
 import config
@@ -104,10 +106,101 @@ def _pixmap_foto(path, size, radius, mtime):
     return result
 
 
+@lru_cache(maxsize=32)
+def _pixmap_poster(path, width, height, radius, bulat_bawah, mtime):
+    """Poster dipotong (cover-crop) pas ke width x height, sudut atas membulat
+    (sudut bawah ikut membulat kalau bulat_bawah=True). Dirender 2x supaya tajam di layar Retina."""
+    skala = 2
+    w, h, r = width * skala, height * skala, radius * skala
+    source = QPixmap(path).scaled(w, h, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                  Qt.TransformationMode.SmoothTransformation)
+    result = QPixmap(w, h)
+    result.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(result)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    # Kalau sudut bawah tidak dibulatkan, kotak bulatnya dibuat lebih tinggi dan "tumpah" ke luar pixmap
+    clip.addRoundedRect(0, 0, w, h if bulat_bawah else h + r, r, r)
+    painter.setClipPath(clip)
+    painter.drawPixmap((w - source.width()) // 2, (h - source.height()) // 2, source)
+    painter.end()
+    result.setDevicePixelRatio(skala)
+    return result
+
+
+EKSTENSI_POSTER = (".png", ".jpg", ".jpeg", ".webp")
+
+
+@lru_cache(maxsize=2)
+def _isi_folder_poster(folder, mtime_folder):
+    """Daftar gambar di folder poster: {nama tanpa ekstensi (huruf kecil): path}.
+    'mtime_folder' (waktu ubah folder) ikut jadi kunci cache, jadi kalau ada file ditambah / dihapus /
+    diganti nama, daftar otomatis dibaca ulang. Tanpa cache, folder dibaca setiap kartu dibuat."""
+    ada = {}
+    for nama_file in sorted(os.listdir(folder)):
+        nama, ekstensi = os.path.splitext(nama_file)
+        if ekstensi.lower() in EKSTENSI_POSTER:
+            ada.setdefault(nama.lower(), os.path.join(folder, nama_file))
+    return ada
+
+
+def poster_file(lomba):
+    """Path gambar poster lomba di assets/poster/, atau '' kalau belum ada.
+    lomba["poster"] = daftar nama file TANPA ekstensi. Pencarian tidak peduli huruf besar/kecil
+    ("Essay.JPG" = "essay.jpg") dan menerima ekstensi png / jpg / jpeg / webp."""
+    folder = os.path.join(config.ASSETS_DIR, "poster")
+    if not os.path.isdir(folder):
+        return ""
+    ada = _isi_folder_poster(folder, os.path.getmtime(folder))
+    for nama in lomba.get("poster", []):
+        if nama.lower() in ada:
+            return ada[nama.lower()]
+    return ""
+
+
+def make_poster(lomba, width, height, radius, bulat_bawah=False):
+    """QLabel berisi poster; None kalau gambarnya belum ada (pemanggil memakai blok warna)."""
+    path = poster_file(lomba)
+    if not path:
+        return None
+    label = QLabel()
+    label.setFixedSize(width, height)
+    label.setPixmap(_pixmap_poster(path, width, height, radius, bulat_bawah, os.path.getmtime(path)))
+    return label
+
+
+@lru_cache(maxsize=32)
+def _url_poster(path, mtime, width, height, radius):
+    """Render poster ke folder sementara SEKALI per (file, ukuran), lalu ingat URL-nya."""
+    kunci = hashlib.md5(f"{path}|{mtime}|{width}x{height}|{radius}".encode()).hexdigest()[:16]
+    folder = os.path.join(tempfile.gettempdir(), "teamup_poster_cache")
+    os.makedirs(folder, exist_ok=True)
+    hasil = os.path.join(folder, f"{kunci}.png")
+    if not os.path.exists(hasil):
+        _pixmap_poster(path, width, height, radius, False, mtime).save(hasil, "PNG")
+    return hasil
+
+
+def poster_url(lomba, width, height, radius):
+    """Untuk QML: poster yang sudah dipotong & dibulatkan disimpan ke folder sementara; kembalikan URL-nya.
+    QML tidak bisa memotong sudut gambar dengan mudah, jadi dikerjakan di Python."""
+    path = poster_file(lomba)
+    if not path:
+        return ""
+    hasil = _url_poster(path, os.path.getmtime(path), width, height, radius)
+    if not os.path.exists(hasil):          # folder sementara dibersihkan sistem -> render ulang
+        _url_poster.cache_clear()
+        hasil = _url_poster(path, os.path.getmtime(path), width, height, radius)
+    return QUrl.fromLocalFile(hasil).toString()
+
+
 def clear_image_cache():
     """Kosongkan cache gambar (manual), mis. setelah logout atau saat RAM ingin dilepas."""
     _pixmap_lebar.cache_clear()
     _pixmap_foto.cache_clear()
+    _pixmap_poster.cache_clear()
+    _url_poster.cache_clear()
+    _isi_folder_poster.cache_clear()
 
 
 def make_image(filename, width, fallback_text="", fallback_size=None):

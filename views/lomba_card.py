@@ -21,14 +21,17 @@ class LombaCard(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Poster sementara: blok warna + judul (gambar poster asli menyusul)
-        poster = QLabel(lomba["judul"].upper())
-        poster.setWordWrap(True)
-        poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        poster.setFixedHeight(sizes.LOMBA_POSTER_HEIGHT)
-        poster.setStyleSheet(
-            f"background-color: {lomba['warna']}; color: white; font-size: 20px; font-weight: bold; "
-            "border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px;")
+        # Poster: gambar asli dari assets/poster/ (sudut atas membulat). Kalau gambarnya belum ada,
+        # tampil blok warna + judul sebagai cadangan.
+        poster = helpers.make_poster(lomba, sizes.LOMBA_CARD_WIDTH, sizes.LOMBA_POSTER_HEIGHT, 20)
+        if poster is None:
+            poster = QLabel(lomba["judul"].upper())
+            poster.setWordWrap(True)
+            poster.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            poster.setFixedHeight(sizes.LOMBA_POSTER_HEIGHT)
+            poster.setStyleSheet(
+                f"background-color: {lomba['warna']}; color: white; font-size: 20px; font-weight: bold; "
+                "border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px;")
         layout.addWidget(poster)
 
         info = QVBoxLayout()
