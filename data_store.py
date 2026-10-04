@@ -205,6 +205,7 @@ def _postingan_baru(post_id, data):
     """Bungkus data form menjadi satu postingan lengkap (status awal: Ditangguhkan)."""
     return {
         "id": post_id, "judul": data["judul"], "kategori": data["kategori"],
+        "gambar": [],   # nama file di assets/poster/ untuk kotak kecil di daftar (poster PDF belum bisa dijadikan gambar)
         "penyelenggara": data["penyelenggara"], "deskripsi": data["deskripsi"],
         "tanggal_lomba": data["tanggal_lomba"], "tenggat_lomba": data["tenggat_lomba"],
         "link": data["link"], "kontak": data["kontak"],
@@ -217,7 +218,7 @@ def _postingan_baru(post_id, data):
 
 
 postingan_list = [
-    {"id": 1, "judul": "Lomba UI/UX Nasional 2026", "kategori": "Desain/UI-UX",
+    {"id": 1, "judul": "Lomba UI/UX Nasional 2026", "gambar": ["informatic"], "kategori": "Desain/UI-UX",
      "penyelenggara": "DPTII FT UNY",
      "deskripsi": "Kompetisi nasional bidang desain antarmuka untuk pelajar SMA/SMK dan mahasiswa. "
                   "Peserta merancang prototipe aplikasi yang menjawab masalah nyata.",
@@ -227,7 +228,7 @@ postingan_list = [
      "status": "Disetujui", "diunggah_hari_lalu": 2,
      "dilihat": 248, "tersimpan": 6, "partner_tertarik": 3,
      "alasan_singkat": "", "catatan_admin": "", "catatan_hari_lalu": 0, "bagian_diperbaiki": ""},
-    {"id": 2, "judul": "Hackathon Kampus 2026", "kategori": "Hackathon",
+    {"id": 2, "judul": "Hackathon Kampus 2026", "gambar": ["zackhaton"], "kategori": "Hackathon",
      "penyelenggara": "DPTEI FT UNY",
      "deskripsi": "Kompetisi membangun solusi digital untuk masalah kampus dalam waktu 24 jam. "
                   "Terbuka untuk seluruh mahasiswa UNY, tim maksimal 4 orang.",
@@ -237,7 +238,7 @@ postingan_list = [
      "status": "Ditangguhkan", "diunggah_hari_lalu": 1,
      "dilihat": 0, "tersimpan": 0, "partner_tertarik": 0,
      "alasan_singkat": "", "catatan_admin": "", "catatan_hari_lalu": 0, "bagian_diperbaiki": ""},
-    {"id": 3, "judul": "Business Case Competition", "kategori": "Lomba Bisnis",
+    {"id": 3, "judul": "Business Case Competition", "gambar": ["pst bisnisn lomba"], "kategori": "Lomba Bisnis",
      "penyelenggara": "BINUS University",
      "deskripsi": "Kompetisi menganalisis studi kasus bisnis nyata dari industri untuk mahasiswa "
                   "se-Indonesia. Tim menyusun strategi solusi (marketing, keuangan, atau operasional) "
@@ -251,7 +252,7 @@ postingan_list = [
      "catatan_admin": "Link pendaftaran yang dicantumkan tidak dapat diakses (404). Mohon perbaiki "
                       "tautan ini dan pastikan link merupakan tautan pendaftaran resmi.",
      "catatan_hari_lalu": 1, "bagian_diperbaiki": "link"},
-    {"id": 4, "judul": "Lomba Essay Ilmiah", "kategori": "Seni & Sastra",
+    {"id": 4, "judul": "Lomba Essay Ilmiah", "gambar": ["essay"], "kategori": "Seni & Sastra",
      "penyelenggara": "Komunitas Literasi Nusantara",
      "deskripsi": "Lomba menulis essay ilmiah bertema inovasi pendidikan untuk mahasiswa.",
      "tanggal_lomba": date(2026, 11, 2), "tenggat_lomba": date(2026, 10, 25),

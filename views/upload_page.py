@@ -31,9 +31,12 @@ class PostItem(QFrame):
         row.setContentsMargins(12, 10, 14, 10)
         row.setSpacing(12)
 
-        thumb = QLabel()
-        thumb.setFixedSize(sizes.POST_THUMB_SIZE, sizes.POST_THUMB_SIZE)
-        thumb.setStyleSheet(styles.POST_THUMB_STYLE)
+        # Kotak kecil: gambar poster dari assets/poster/ kalau ada; kalau tidak, kotak biru muda polos
+        thumb = helpers.make_thumbnail(post, sizes.POST_THUMB_SIZE, 4)
+        if thumb is None:
+            thumb = QLabel()
+            thumb.setFixedSize(sizes.POST_THUMB_SIZE, sizes.POST_THUMB_SIZE)
+            thumb.setStyleSheet(styles.POST_THUMB_STYLE)
         row.addWidget(thumb, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         text = QVBoxLayout()

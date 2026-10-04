@@ -144,18 +144,35 @@ def _isi_folder_poster(folder, mtime_folder):
     return ada
 
 
-def poster_file(lomba):
-    """Path gambar poster lomba di assets/poster/, atau '' kalau belum ada.
-    lomba["poster"] = daftar nama file TANPA ekstensi. Pencarian tidak peduli huruf besar/kecil
-    ("Essay.JPG" = "essay.jpg") dan menerima ekstensi png / jpg / jpeg / webp."""
+def cari_gambar_poster(daftar_nama):
+    """Path gambar di assets/poster/ dari daftar nama file TANPA ekstensi, atau '' kalau tidak ada.
+    Pencarian tidak peduli huruf besar/kecil ("Essay.JPG" = "essay.jpg"), boleh ada spasi di nama,
+    dan menerima ekstensi png / jpg / jpeg / webp."""
     folder = os.path.join(config.ASSETS_DIR, "poster")
     if not os.path.isdir(folder):
         return ""
     ada = _isi_folder_poster(folder, os.path.getmtime(folder))
-    for nama in lomba.get("poster", []):
+    for nama in daftar_nama:
         if nama.lower() in ada:
             return ada[nama.lower()]
     return ""
+
+
+def poster_file(lomba):
+    """Path gambar poster sebuah lomba (lomba["poster"] = daftar nama), atau ''."""
+    return cari_gambar_poster(lomba.get("poster", []))
+
+
+def make_thumbnail(post, size, radius):
+    """Kotak kecil bergambar untuk baris Postingan Saya (post["gambar"] = daftar nama file di
+    assets/poster/). None kalau gambarnya belum ada -> pemanggil memakai kotak polos."""
+    path = cari_gambar_poster(post.get("gambar", []))
+    if not path:
+        return None
+    label = QLabel()
+    label.setFixedSize(size, size)
+    label.setPixmap(_pixmap_poster(path, size, size, radius, True, os.path.getmtime(path)))
+    return label
 
 
 def make_poster(lomba, width, height, radius, bulat_bawah=False):
