@@ -76,7 +76,7 @@ class PartnerPage(ContentPage):
         # Judul: maskot + judul, subjudul di bawahnya
         greeting = QHBoxLayout()
         greeting.setSpacing(12)
-        greeting.addWidget(helpers.make_image("burung_rekan.png", 90, "🦜🦜🦜", 34))
+        greeting.addWidget(helpers.make_image("burung_rekan.png", 140, "🦜🦜🦜", 34))
         title = QLabel("Ayo temukan rekan timmu!")
         title.setStyleSheet(f"font-size: 30px; font-weight: bold; color: {config.COLOR_NAVY};")
         greeting.addWidget(title)
