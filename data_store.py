@@ -62,7 +62,7 @@ users = [
         "keahlian": ["Backend Development", "Programmer"],
         "instagram": "nadiaputri",
         "pengalaman": ["Peserta Gemastik 2025"],
-        "foto": "",
+        "foto": "nadia.png",
     },
     {
         "nama": "Bima Prakoso",
@@ -76,7 +76,7 @@ users = [
         "keahlian": ["UI/UX Design", "Ilustrasi"],
         "instagram": "",
         "pengalaman": [],
-        "foto": "",
+        "foto": "bima.png",
     },
 ]
 
