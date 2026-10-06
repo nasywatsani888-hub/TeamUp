@@ -414,3 +414,8 @@ POST_BOX_YELLOW = post_box_style("#FFF1C9", "#F5C84B")
 POST_BOX_RED = post_box_style("#F7C6C6", "#E57373")
 POST_BOX_GREEN = post_box_style("#E4F5D8", "#9ED17B")
 POST_STAT_DIVIDER_STYLE = "background-color: #C9CED6;"
+
+POST_PROGRESS_STYLE = """
+QProgressBar { background-color: #E3F1FB; border: none; border-radius: 4px; height: 8px; }
+QProgressBar::chunk { background-color: #3374C7; border-radius: 4px; }
+"""

@@ -13,6 +13,8 @@ import config
 import styles
 import data_store
 import helpers
+import preload
+import workers
 from views.login_page import LoginPage
 from views.register_page import RegisterPage
 from views.success_page import SuccessPage
@@ -61,6 +63,12 @@ class MainWindow(QMainWindow):
 
         self.connect_signals()
 
+        # Preload foto & poster di latar belakang (lihat preload.py). Dimulai SETELAH semua halaman jadi
+        # (singleShot(0) = "begitu event loop mulai berputar"), supaya tidak berebut CPU dengan
+        # pembangunan halaman dan memperlambat startup. User masih di splash / login selama beberapa detik,
+        # waktu yang cukup bagi worker untuk menyelesaikannya.
+        QTimer.singleShot(0, preload.mulai)
+
     def connect_signals(self):
         # Tab Masuk | Daftar
         for page in (self.login_page, self.register_page):
@@ -89,6 +97,12 @@ class MainWindow(QMainWindow):
 
     def show_page(self, page):
         self.stack.setCurrentWidget(page)
+
+    def closeEvent(self, event):
+        """Aplikasi ditutup: minta semua worker berhenti dan tunggu sebentar. Kalau tidak, Qt bisa
+        menutup saat thread masih jalan ('QThread: Destroyed while thread is still running')."""
+        workers.tunggu_selesai(3000)
+        super().closeEvent(event)
 
     # --- Listener (slot) ---
     def handle_login_success(self, user_data):
@@ -133,5 +147,6 @@ if __name__ == "__main__":
     load_fonts()
     app.setStyleSheet(styles.APP_STYLE)
     window = MainWindow()
+    app.aboutToQuit.connect(workers.tunggu_selesai)   # pengaman kedua: keluar lewat Cmd+Q / app.quit() juga menunggu worker
     window.showMaximized()
     sys.exit(app.exec())

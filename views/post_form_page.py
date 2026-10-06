@@ -1,9 +1,9 @@
 # views/post_form_page.py — formulir Unggah Info Lomba (baru) dan Perbaiki Informasi Lomba (revisi)
 import os
-import shutil
 import time
 from PySide6.QtCore import QDate, QLocale, QSize, Qt, Signal
 from PySide6.QtWidgets import (QComboBox, QDateEdit, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel,
+                               QProgressBar,
                                QLineEdit, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget)
 from views.base_page import BasePage
 from views.upload_dialog import DropZone
@@ -13,6 +13,41 @@ import helpers
 import icons
 import sizes
 import styles
+import workers
+
+
+UKURAN_POTONGAN = 1024 * 1024   # berkas disalin per 1 MB supaya progres & pembatalan bisa dicek di sela-sela
+
+
+def salin_berkas(kontrol, daftar):
+    """Dijalankan WORKER (thread lain). daftar = [(sumber, tujuan), ...].
+    Menyalin per potongan sambil melapor progres. Kalau dibatalkan / gagal, berkas yang sudah
+    terlanjur dibuat dihapus lagi -> tidak ada sampah setengah jadi. Tidak menyentuh widget / data_store."""
+    total = sum(os.path.getsize(sumber) for sumber, _ in daftar) or 1
+    selesai = 0
+    dibuat = []
+    berhasil = False
+    try:
+        for sumber, tujuan in daftar:
+            os.makedirs(os.path.dirname(tujuan), exist_ok=True)
+            dibuat.append(tujuan)
+            with open(sumber, "rb") as masuk, open(tujuan, "wb") as keluar:
+                while True:
+                    potongan = masuk.read(UKURAN_POTONGAN)
+                    if not potongan:
+                        break
+                    if kontrol.dibatalkan:
+                        return None
+                    keluar.write(potongan)
+                    selesai += len(potongan)
+                    kontrol.laporkan(selesai * 100 // total)
+        berhasil = True
+        return [tujuan for _, tujuan in daftar]
+    finally:
+        if not berhasil:
+            for tujuan in dibuat:
+                if os.path.exists(tujuan):
+                    os.remove(tujuan)
 
 
 class FileField(QWidget):
@@ -95,6 +130,9 @@ class PostFormPage(BasePage):
         self.mode = "baru"
         self.post_id = None
         self.link_awal = ""   # link sebelum diperbaiki (mode revisi)
+        self.sedang_mengirim = False   # True selama worker menyalin berkas
+        self.token_kirim = None        # penanda pengiriman yang sedang berlaku (untuk mengabaikan hasil yang basi)
+        self.worker = None             # worker penyalin berkas milik form ini (agar hanya ini yang dibatalkan)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -198,6 +236,13 @@ class PostFormPage(BasePage):
         # ----- Pesan + tombol kirim -----
         self.message_label = helpers.make_message_label()
         layout.addWidget(self.message_label)
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setFixedWidth(320)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setStyleSheet(styles.POST_PROGRESS_STYLE)
+        self.progress_bar.hide()
+        layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.submit_button = QPushButton("Kirim untuk verifikasi")
         self.submit_button.setStyleSheet(styles.POST_BLUE_BUTTON_STYLE)
         self.submit_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -295,14 +340,52 @@ class PostFormPage(BasePage):
                                "Link pendaftaran belum diperbaiki. Mohon ubah sesuai catatan admin.")
             return
 
+        # Berkas disalin oleh WORKER di thread lain, jadi jendela tetap bisa digerakkan / tidak "not responding"
+        # walau berkasnya besar atau disimpan di disk yang lambat (flashdisk, drive jaringan, iCloud).
+        nama_poster, tugas_poster = self.rencanakan_salin(self.poster_field)
+        nama_dokumen, tugas_dokumen = self.rencanakan_salin(self.dokumen_field)
         data = {
             "judul": judul, "kategori": kategori, "deskripsi": deskripsi,
             "tanggal_lomba": self.tanggal_input.date().toPython(),
             "tenggat_lomba": self.tenggat_input.date().toPython(),
             "link": link, "kontak": kontak,
-            "poster": self.save_file(self.poster_field),
-            "dokumen": self.save_file(self.dokumen_field),
+            "poster": nama_poster, "dokumen": nama_dokumen,
         }
+        daftar = [tugas for tugas in (tugas_poster, tugas_dokumen) if tugas]
+        if not daftar:                      # tidak ada berkas baru (mis. perbaikan tanpa ganti poster)
+            self.selesaikan(data)
+            return
+        token = object()
+        self.token_kirim = token
+        self.set_mengirim(True)
+        self.worker = workers.jalankan(
+            salin_berkas, daftar,
+            saat_progres=self.progress_bar.setValue,
+            saat_selesai=lambda _hasil: self.selesaikan(data) if token is self.token_kirim else None,
+            saat_galat=lambda pesan: self.gagal_kirim(pesan) if token is self.token_kirim else None)
+
+    def rencanakan_salin(self, field):
+        """Tentukan nama berkas tujuan (tanpa menyalin). Mengembalikan (nama, (sumber, tujuan) atau None)."""
+        if not field.path:
+            return field.existing, None
+        nama_baru = f"{int(time.time())}_{os.path.basename(field.path)}"
+        tujuan = os.path.join(config.ASSETS_DIR, "postingan", nama_baru)
+        return nama_baru, (field.path, tujuan)
+
+    def set_mengirim(self, sibuk):
+        """Atur tampilan 'sedang mengirim': tombol dikunci supaya tidak terkirim dobel."""
+        self.sedang_mengirim = sibuk
+        self.submit_button.setEnabled(not sibuk)
+        self.back_button.setEnabled(not sibuk)
+        self.submit_button.setText("Mengirim..." if sibuk else "Kirim untuk verifikasi")
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(sibuk)
+        if sibuk:
+            self.message_label.setText("")
+
+    def selesaikan(self, data):
+        """Dipanggil di THREAD UI setelah semua berkas tersalin. Data bersama (data_store) hanya diubah di sini."""
+        self.set_mengirim(False)
         if self.mode == "revisi":
             post = data_store.kirim_ulang_postingan(self.post_id, data)
         else:
@@ -312,12 +395,15 @@ class PostFormPage(BasePage):
         self.message_label.setText("")
         self.submitted.emit(post["id"], self.mode)
 
-    def save_file(self, field):
-        """Salin file yang baru dipilih ke assets/postingan/ dan kembalikan namanya."""
-        if not field.path:
-            return field.existing
-        folder = os.path.join(config.ASSETS_DIR, "postingan")
-        os.makedirs(folder, exist_ok=True)
-        new_name = f"{int(time.time())}_{os.path.basename(field.path)}"
-        shutil.copy(field.path, os.path.join(folder, new_name))
-        return new_name
+    def gagal_kirim(self, pesan):
+        self.set_mengirim(False)
+        if pesan != "dibatalkan":
+            helpers.show_error(self.message_label, f"Gagal menyimpan berkas ({pesan}). Silakan coba lagi.")
+
+    # Widget Lifecycle: meninggalkan halaman saat pengiriman jalan -> batalkan worker, buang hasilnya
+    def on_hide(self):
+        if self.sedang_mengirim:
+            self.token_kirim = None         # hasil yang menyusul akan diabaikan
+            if self.worker is not None:
+                self.worker.batalkan()      # hanya worker milik form ini, bukan worker lain (mis. preload)
+            self.set_mengirim(False)

@@ -2,9 +2,10 @@
 import hashlib
 import os
 import tempfile
+import threading
 from functools import lru_cache
 from PySide6.QtCore import Qt, QPointF, QSize, QUrl
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QPushButton, QLineEdit, QFrame, QHBoxLayout, QVBoxLayout, QWidget
 import config
 import styles
@@ -89,43 +90,70 @@ def _pixmap_lebar(path, width, mtime):
     return QPixmap(path).scaledToWidth(width, Qt.TransformationMode.SmoothTransformation)
 
 
+# ---------- Memuat gambar dua tahap (Pertemuan 7: Concurrency) ----------
+# Tahap BERAT (baca file + decode + skala + potong sudut) hanya memakai QImage, yang AMAN dipakai
+# di thread mana pun -> bisa dikerjakan worker di latar belakang. QPixmap TIDAK boleh dibuat di luar
+# thread UI, jadi tahap RINGAN (QImage -> QPixmap) dilakukan di thread UI.
+# Hasil worker "diparkir" di _gambar_siap; saat widget memintanya, thread UI tinggal mengambil.
+_gambar_siap = {}          # kunci -> QImage hasil worker
+_kunci_dipakai = set()     # kunci yang sudah pernah diminta thread UI (worker tidak perlu mengerjakannya lagi)
+_kunci_kunci = threading.Lock()   # dua thread menyentuh dua struktur di atas -> harus dikunci
+
+
+def render_kotak(path, lebar, tinggi, radius, bulat_bawah, skala):
+    """Gambar dipotong (cover-crop) pas ke lebar x tinggi dengan sudut membulat -> QImage.
+    bulat_bawah=False: hanya sudut atas yang bulat. Aman dipanggil dari thread mana pun."""
+    w, h, r = lebar * skala, tinggi * skala, radius * skala
+    sumber = QImage(path).scaled(w, h, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                 Qt.TransformationMode.SmoothTransformation)
+    hasil = QImage(w, h, QImage.Format.Format_ARGB32_Premultiplied)
+    hasil.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(hasil)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    # Kalau sudut bawah tidak dibulatkan, kotak bulatnya dibuat lebih tinggi dan "tumpah" ke luar gambar
+    clip.addRoundedRect(0, 0, w, h if bulat_bawah else h + r, r, r)
+    painter.setClipPath(clip)
+    painter.drawImage((w - sumber.width()) // 2, (h - sumber.height()) // 2, sumber)
+    painter.end()
+    return hasil
+
+
+def simpan_siap(kunci, gambar):
+    """Dipanggil WORKER: parkir hasil render, kecuali thread UI sudah membuatnya sendiri."""
+    with _kunci_kunci:
+        if kunci not in _kunci_dipakai:
+            _gambar_siap[kunci] = gambar
+
+
+def sudah_dipakai(kunci):
+    with _kunci_kunci:
+        return kunci in _kunci_dipakai
+
+
+def _bangun_pixmap(path, lebar, tinggi, radius, bulat_bawah, skala, mtime):
+    """Dipanggil THREAD UI. Pakai hasil worker kalau sudah ada; kalau belum, render sendiri (cara lama)."""
+    kunci = (path, lebar, tinggi, radius, bulat_bawah, skala, mtime)
+    with _kunci_kunci:
+        _kunci_dipakai.add(kunci)
+        gambar = _gambar_siap.pop(kunci, None)    # pop = ambil sekaligus kosongkan (hemat RAM)
+    if gambar is None:
+        gambar = render_kotak(path, lebar, tinggi, radius, bulat_bawah, skala)
+    hasil = QPixmap.fromImage(gambar)
+    hasil.setDevicePixelRatio(skala)
+    return hasil
+
+
 @lru_cache(maxsize=64)
 def _pixmap_foto(path, size, radius, mtime):
     """Foto persegi dipotong bertepi membulat; radius = size // 2 menghasilkan lingkaran."""
-    source = QPixmap(path).scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                                  Qt.TransformationMode.SmoothTransformation)
-    result = QPixmap(size, size)
-    result.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(result)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    clip = QPainterPath()
-    clip.addRoundedRect(0, 0, size, size, radius, radius)
-    painter.setClipPath(clip)
-    painter.drawPixmap((size - source.width()) // 2, (size - source.height()) // 2, source)
-    painter.end()
-    return result
+    return _bangun_pixmap(path, size, size, radius, True, 1, mtime)
 
 
 @lru_cache(maxsize=32)
 def _pixmap_poster(path, width, height, radius, bulat_bawah, mtime):
-    """Poster dipotong (cover-crop) pas ke width x height, sudut atas membulat
-    (sudut bawah ikut membulat kalau bulat_bawah=True). Dirender 2x supaya tajam di layar Retina."""
-    skala = 2
-    w, h, r = width * skala, height * skala, radius * skala
-    source = QPixmap(path).scaled(w, h, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                                  Qt.TransformationMode.SmoothTransformation)
-    result = QPixmap(w, h)
-    result.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(result)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    clip = QPainterPath()
-    # Kalau sudut bawah tidak dibulatkan, kotak bulatnya dibuat lebih tinggi dan "tumpah" ke luar pixmap
-    clip.addRoundedRect(0, 0, w, h if bulat_bawah else h + r, r, r)
-    painter.setClipPath(clip)
-    painter.drawPixmap((w - source.width()) // 2, (h - source.height()) // 2, source)
-    painter.end()
-    result.setDevicePixelRatio(skala)
-    return result
+    """Poster dipotong pas ke width x height. Dirender 2x supaya tajam di layar Retina."""
+    return _bangun_pixmap(path, width, height, radius, bulat_bawah, 2, mtime)
 
 
 EKSTENSI_POSTER = (".png", ".jpg", ".jpeg", ".webp")
@@ -186,15 +214,28 @@ def make_poster(lomba, width, height, radius, bulat_bawah=False):
     return label
 
 
-@lru_cache(maxsize=32)
-def _url_poster(path, mtime, width, height, radius):
-    """Render poster ke folder sementara SEKALI per (file, ukuran), lalu ingat URL-nya."""
+def lokasi_png_qml(path, mtime, width, height, radius):
+    """Lokasi berkas PNG sementara yang dibaca QML (poster sudah dipotong & dibulatkan)."""
     kunci = hashlib.md5(f"{path}|{mtime}|{width}x{height}|{radius}".encode()).hexdigest()[:16]
     folder = os.path.join(tempfile.gettempdir(), "teamup_poster_cache")
     os.makedirs(folder, exist_ok=True)
-    hasil = os.path.join(folder, f"{kunci}.png")
+    return os.path.join(folder, f"{kunci}.png")
+
+
+def simpan_png_atomik(gambar, tujuan):
+    """Tulis ke berkas sementara lalu 'rename' -> pembaca tidak pernah melihat berkas setengah jadi
+    (penting karena worker menulis sementara QML bisa membacanya)."""
+    sementara = f"{tujuan}.{threading.get_ident()}.tmp"
+    gambar.save(sementara, "PNG")
+    os.replace(sementara, tujuan)
+
+
+@lru_cache(maxsize=32)
+def _url_poster(path, mtime, width, height, radius):
+    """Render poster ke folder sementara SEKALI per (file, ukuran), lalu ingat lokasinya."""
+    hasil = lokasi_png_qml(path, mtime, width, height, radius)
     if not os.path.exists(hasil):
-        _pixmap_poster(path, width, height, radius, False, mtime).save(hasil, "PNG")
+        simpan_png_atomik(_pixmap_poster(path, width, height, radius, False, mtime).toImage(), hasil)
     return hasil
 
 
@@ -218,6 +259,9 @@ def clear_image_cache():
     _pixmap_poster.cache_clear()
     _url_poster.cache_clear()
     _isi_folder_poster.cache_clear()
+    with _kunci_kunci:
+        _gambar_siap.clear()
+        _kunci_dipakai.clear()
 
 
 def make_image(filename, width, fallback_text="", fallback_size=None):
