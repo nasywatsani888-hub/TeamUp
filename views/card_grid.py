@@ -36,6 +36,11 @@ class CardGrid(QWidget):
         self.cards = cards
         self.arrange()
 
+    def add_cards(self, cards):
+        """Tambahkan kartu di belakang kartu yang sudah ada (dipakai paginasi 'Muat lebih banyak')."""
+        self.cards.extend(cards)
+        self.arrange()
+
     def arrange(self):
         while self.grid.count():
             self.grid.takeAt(0)   # lepas dari grid (widget-nya sendiri tidak dihapus)

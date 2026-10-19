@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel, QPushButton,
                                QScrollArea, QVBoxLayout, QWidget)
 from views.base_page import BasePage
+from views.paginasi import PaginasiBawah
 import config
 import data_store
 import helpers
@@ -136,6 +137,11 @@ class UploadPage(BasePage):
         self.list_layout = QVBoxLayout()
         self.list_layout.setSpacing(12)
         mine_layout.addLayout(self.list_layout)
+        self.paginasi = PaginasiBawah("postingan")
+        self.paginasi.muat_diminta.connect(self.muat_lagi)
+        mine_layout.addWidget(self.paginasi)
+        self.semua_post = []      # hasil filter; widget baru dibuat per halaman (lihat muat_lagi)
+        self.jumlah_tampil = 0
 
         layout.addStretch()
         scroll.setWidget(content)
@@ -178,16 +184,26 @@ class UploadPage(BasePage):
         for name, chip in self.chips.items():
             chip.setText(f"{name} ({counts[name]})")
         helpers.clear_layout(self.list_layout)
-        posts = data_store.get_postingan(self.status_filter)
-        if len(posts) == 0:
+        self.semua_post = data_store.get_postingan(self.status_filter)
+        self.jumlah_tampil = 0
+        if len(self.semua_post) == 0:
             empty = QLabel("Belum ada postingan dengan status ini.")
             empty.setStyleSheet(f"font-size: 14px; color: {config.COLOR_SUBTEXT};")
             self.list_layout.addWidget(empty)
+            self.paginasi.hide()
             return
-        for post in posts:
+        self.muat_lagi()
+
+    def muat_lagi(self):
+        """Buat widget untuk SATU halaman berikutnya saja (bukan seluruh daftar) -> thread UI tidak tertahan."""
+        awal = self.jumlah_tampil
+        akhir = min(awal + sizes.UKURAN_HALAMAN_POSTINGAN, len(self.semua_post))
+        for post in self.semua_post[awal:akhir]:
             item = PostItem(post)
             item.clicked.connect(self.post_clicked)
             self.list_layout.addWidget(item)
+        self.jumlah_tampil = akhir
+        self.paginasi.perbarui(akhir, len(self.semua_post), sizes.UKURAN_HALAMAN_POSTINGAN)
 
     # Widget Lifecycle: daftar di-refresh tiap halaman tampil; saat ditinggalkan, kembali ke awal
     def on_show(self):
