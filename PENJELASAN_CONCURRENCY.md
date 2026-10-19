@@ -135,6 +135,48 @@ Total waktunya sama; bedanya **UI tetap hidup**. Thread tidak membuat pekerjaan 
 
 ---
 
+## 4b. Kasus "banyak data": apakah UI freeze kalau datanya ribuan?
+
+**Ya, sebelum diperbaiki.** Ini sumber freeze yang *berbeda* dari bagian 2: bukan operasi berat (gambar, berkas), tetapi
+**membuat ribuan widget sekaligus**. Halaman Postingan Saya, Rekan Tim, dan Lomba membuat SEMUA baris/kartu begitu
+dibuka, di thread UI. Waktunya naik sebanding dengan jumlah data (±3-5 ms per item di mesin uji), sehingga dengan
+1000 item jendela tertahan 3-4 detik, dan sudah terasa ngelag di kisaran 20-50 item.
+
+**Kenapa worker tidak menolong?** Qt melarang widget dibuat di thread lain. Pekerjaan yang lambat *adalah* membuat widget,
+jadi harus di thread UI. Satu-satunya cara: **membuat lebih sedikit widget sekaligus**.
+
+| Teknik | Cara kerja | Dipakai? |
+|---|---|---|
+| **Paginasi** ("Muat lebih banyak") | hanya satu halaman (12-15 item) dibuat; sisanya saat diminta | **Ya** |
+| Render bertahap | semua item dibuat, tetapi 5-10 per putaran `QTimer` agar UI sempat bernapas | belum (cadangan) |
+| List virtual (`QListView`, `ListView` QML) | hanya item yang terlihat di layar yang dibuat | belum (paling ideal untuk puluhan ribu item) |
+| Worker | menyiapkan / mengurutkan / memfilter data di latar belakang | tidak perlu: 1000 item hanya beberapa ms |
+
+**Yang dibuat**
+- `views/paginasi.py`: komponen "Menampilkan X dari Y" + tombol "Muat lebih banyak (N lagi)" untuk Postingan Saya dan Rekan Tim.
+- `ModelLomba(QAbstractListModel)` di `views/lomba_backend.py` untuk halaman Lomba (QML). Dengan array JavaScript biasa,
+  *setiap* "Muat lebih banyak" membangun ulang SEMUA kartu (makin lama makin berat). Dengan model Qt,
+  `beginInsertRows` hanya menambah kartu baru.
+- Ukuran halaman di `sizes.py` (`UKURAN_HALAMAN_*`). Mengganti filter / urutan kembali ke halaman pertama.
+- Angka di chip ("Semua (40)") dan subjudul ("24 rekan tersedia") tetap menghitung **semua** data, bukan yang tampil.
+
+**Hasil ukur** (`python tes_skala.py`, alat dan mesin sama, dalam ms; di atas 100 ms terasa ngelag)
+
+| Halaman / aksi | Sebelum 50 data | Sebelum 200 | Sebelum 1000 | **Sesudah 50** | **Sesudah 1000** |
+|---|---|---|---|---|---|
+| Buka Postingan Saya | 134 | 662 | **4.314** | 54 | **51** |
+| Ganti filter status | 44 | 189 | 1.215 | 41 | 44 |
+| Buka halaman Lomba | 109 | 636 | **3.202** | 59 | **55** |
+| Filter Lomba | 31 | 251 | 1.376 | 16 | 14 |
+| Buka Rekan Tim | 109 | 462 | **3.063** | 45 | **36** |
+| Muat 1 halaman lagi | – | – | – | 35 / 36 / 35 | 36 / 21 / 32 |
+| Beranda (hanya 4 kartu) | 2 | 2 | 2 | 2 | 2 |
+
+Setelah paginasi waktunya **datar**: 1000 data sama cepatnya dengan 50 data. `tes_paginasi.py` memeriksa ini secara otomatis
+(2000 postingan menghasilkan jumlah baris yang sama dengan 50, dan waktu bukanya tidak jauh berbeda).
+
+---
+
 ## 5. Aturan keselamatan thread yang dipakai
 
 1. **Widget hanya disentuh thread UI.** Worker hanya mengembalikan nilai / mengirim signal.
@@ -157,6 +199,10 @@ Total waktunya sama; bedanya **UI tetap hidup**. Thread tidak membuat pekerjaan 
 - Parkiran `_gambar_siap` menyimpan sampai ±20 `QImage` sampai dipakai (±beberapa MB). Dibatasi daftar kerja dan
   dikosongkan oleh `clear_image_cache()`.
 - Penyalinan foto profil di `edit_profile_page.py` masih sinkron (berkasnya kecil). Bisa dipindah dengan pola yang sama.
+- Paginasi memakai tombol "Muat lebih banyak", bukan *infinite scroll*; Notifikasi dan Riwayat belum dipaginasi
+  (polanya sama). Untuk puluhan ribu item, list virtual (`QListView` / QML `ListView`) lebih tepat.
+- Pemfilteran / pengurutan data masih berjalan di Python (O(N)); untuk 1000 item hanya beberapa milidetik. Untuk
+  jutaan item perlu database dengan query (Pertemuan 9-10).
 - Kirim OTP di aplikasi ini hanya simulasi, jadi tidak ada panggilan jaringan nyata yang perlu di-thread-kan.
   Kalau nanti memakai SMTP / API sungguhan, pola `workers.jalankan(...)` yang sama dipakai.
 - Uji berjalan tanpa jendela dan di mesin 1-core; di Mac multi-core angka mutlaknya lebih kecil, tetapi
@@ -172,6 +218,8 @@ python demo_thread.py              # JENDELA demo: bola bergerak; klik tombol 1 
 python demo_thread.py --otomatis   # angka percobaan di terminal
 python tes_responsif.py            # ukur macet UI: tanpa vs dengan worker / preload
 python tes_thread.py               # 30 uji otomatis
+python tes_skala.py                # ukur "banyak data": 10 / 50 / 200 / 1000 item (atau: python tes_skala.py 100 5000)
+python tes_paginasi.py             # 21 uji otomatis paginasi
 TEAMUP_DEBUG_MEMORY=1 python main.py   # juga mencetak "[preload] N gambar ... ms" saat aplikasi dibuka
 ```
 
@@ -201,3 +249,7 @@ TEAMUP_DEBUG_MEMORY=1 python main.py   # juga mencetak "[preload] N gambar ... m
 | `main.py` | mulai preload, `closeEvent` & `aboutToQuit` menunggu worker |
 | `styles.py` | gaya progress bar |
 | `tes_responsif.py`, `tes_thread.py`, `demo_thread.py` (baru) | alat ukur, uji otomatis, demo presentasi |
+| `views/paginasi.py` (baru) | komponen "Muat lebih banyak" |
+| `views/upload_page.py`, `views/partner_page.py`, `views/card_grid.py` | memakai paginasi |
+| `views/lomba_backend.py`, `views/qml/LombaPage.qml` | `ModelLomba` + paginasi QML |
+| `tes_skala.py`, `tes_paginasi.py` (baru) | uji banyak data dan uji paginasi |

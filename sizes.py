@@ -100,3 +100,8 @@ CONFIRM_DIALOG_HEIGHT = 400
 EDIT_BLOCKED_DIALOG_WIDTH = 500 # dialog "tidak bisa edit saat diverifikasi"
 EDIT_BLOCKED_DIALOG_HEIGHT = 190
 POST_FORM_FILE_HEIGHT = 120     # tinggi kotak tarik-atau-pilih file di formulir
+
+# ---------- Paginasi: berapa item dibuat per "halaman" (Pertemuan 7: banyak data) ----------
+UKURAN_HALAMAN_POSTINGAN = 15    # views/upload_page.py (Postingan Saya)
+UKURAN_HALAMAN_REKAN = 12        # views/partner_page.py (Rekan Tim)
+UKURAN_HALAMAN_LOMBA = 12        # views/lomba_backend.py (halaman Lomba, QML)

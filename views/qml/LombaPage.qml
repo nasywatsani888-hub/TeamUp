@@ -76,16 +76,47 @@ Item {
             Layout.rightMargin: lombaBackend.contentMargin
             spacing: lombaBackend.cardSpacing
             Repeater {
-                model: lombaBackend.lomba
+                model: lombaBackend.modelLomba   // model Qt: "Muat lebih banyak" hanya menambah kartu baru
                 LombaCard {
-                    lomba: modelData
+                    lomba: model.lomba
                     onDetailClicked: (id) => lombaBackend.openDetail(id)
                 }
             }
         }
 
+        // Paginasi: "Menampilkan X dari Y lomba" + tombol memuat halaman berikutnya
+        RowLayout {
+            visible: lombaBackend.totalLomba > lombaBackend.cardsPerPage
+            Layout.leftMargin: lombaBackend.contentMargin
+            spacing: 14
+            AppText {
+                text: "Menampilkan " + lombaBackend.jumlahTampil + " dari " + lombaBackend.totalLomba + " lomba"
+                font.pixelSize: 12; color: "#6B7C93"
+            }
+            Rectangle {
+                visible: lombaBackend.berikutnya > 0
+                implicitWidth: muatText.implicitWidth + 36
+                implicitHeight: 34
+                radius: 10
+                color: muatArea.containsMouse ? "#F3F6FA" : "white"
+                border.color: "#B8C2CC"; border.width: 1
+                AppText {
+                    id: muatText
+                    anchors.centerIn: parent
+                    text: "Muat lebih banyak (" + lombaBackend.berikutnya + " lagi)"
+                    font.pixelSize: 12; font.bold: true; color: "#0F2E6B"
+                }
+                MouseArea {
+                    id: muatArea
+                    anchors.fill: parent; hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: lombaBackend.muatLagi()
+                }
+            }
+        }
+
         AppText {
-            visible: lombaBackend.lomba.length === 0
+            visible: lombaBackend.totalLomba === 0
             Layout.leftMargin: lombaBackend.contentMargin
             text: "Belum ada lomba yang cocok dengan filter ini."
             font.pixelSize: 15; color: "#6B7C93"

@@ -3,6 +3,7 @@
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 from views.card_grid import CardGrid
+from views.paginasi import PaginasiBawah
 from views.content_page import ContentPage
 from views.filter_bar import FilterBar
 import config
@@ -91,7 +92,12 @@ class PartnerPage(ContentPage):
                                     data_store.URUTAN_DEFAULT, accent="blue")
         layout.addWidget(self.filter_bar)
         self.card_grid = CardGrid(sizes.PARTNER_CARD_WIDTH, sizes.PARTNER_CARD_SPACING)
-        layout.addWidget(self.card_grid)
+        layout.addWidget(self.card_grid, 0, Qt.AlignmentFlag.AlignTop)   # tinggi = isinya saja, sisa ruang tidak mendorong footer turun
+        self.paginasi = PaginasiBawah("rekan")
+        self.paginasi.muat_diminta.connect(self.muat_lagi)
+        layout.addWidget(self.paginasi)
+        self.semua_partner = []   # hasil filter; kartu baru dibuat per halaman (lihat muat_lagi)
+        self.jumlah_tampil = 0
         self.empty_label = QLabel("Belum ada rekan yang cocok dengan filter ini.")
         self.empty_label.setStyleSheet(f"font-size: 15px; color: {config.COLOR_SUBTEXT};")
         layout.addWidget(self.empty_label)
@@ -102,15 +108,25 @@ class PartnerPage(ContentPage):
 
     def show_partners(self):
         """Ambil data sesuai filter, lalu bangun ulang kartu."""
-        partners = data_store.get_partners(self.filter_bar.selected_categories, self.filter_bar.selected_order)
-        self.subtitle_label.setText(f"{len(partners)} rekan tersedia")
-        cards = []
-        for user in partners:
+        self.semua_partner = data_store.get_partners(self.filter_bar.selected_categories, self.filter_bar.selected_order)
+        self.subtitle_label.setText(f"{len(self.semua_partner)} rekan tersedia")
+        self.card_grid.set_cards([])
+        self.jumlah_tampil = 0
+        self.muat_lagi()
+        self.empty_label.setVisible(len(self.semua_partner) == 0)
+
+    def muat_lagi(self):
+        """Buat kartu untuk SATU halaman berikutnya saja (bukan semua rekan) -> thread UI tidak tertahan."""
+        awal = self.jumlah_tampil
+        akhir = min(awal + sizes.UKURAN_HALAMAN_REKAN, len(self.semua_partner))
+        kartu = []
+        for user in self.semua_partner[awal:akhir]:
             card = PartnerCard(user)
             card.profile_clicked.connect(self.profile_requested)
-            cards.append(card)
-        self.card_grid.set_cards(cards)
-        self.empty_label.setVisible(len(partners) == 0)
+            kartu.append(card)
+        self.card_grid.add_cards(kartu)
+        self.jumlah_tampil = akhir
+        self.paginasi.perbarui(akhir, len(self.semua_partner), sizes.UKURAN_HALAMAN_REKAN)
 
     # Widget Lifecycle: data di-refresh setiap halaman tampil (mis. kembali dari profil)
     def refresh(self):
