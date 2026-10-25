@@ -1,7 +1,6 @@
 # views/auth_page.py — kerangka halaman Login/Daftar/Reset: kiri logo, kanan form
-import os
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel,
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QVBoxLayout, QWidget, 
                                QPushButton, QScrollArea)
 from views.base_page import BasePage
 import config

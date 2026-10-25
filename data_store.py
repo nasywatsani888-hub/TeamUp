@@ -422,24 +422,6 @@ def cari_partner_sesuai_keahlian(kategori_lomba, count=3):
     return hasil
 
 
-def get_kategori_lomba():
-    """Daftar kategori lomba yang ada (tanpa duplikat, urut abjad) untuk popup Kategori."""
-    return sorted(set(lomba["kategori"] for lomba in lomba_list))
-
-
-def get_lomba_terfilter(kategori_dipilih=(), urutan=URUTAN_LOMBA_DEFAULT):
-    """Lomba sesuai kategori terpilih (kosong = semua), diurutkan menurut 'urutan'."""
-    hasil = [lomba for lomba in lomba_list
-             if len(kategori_dipilih) == 0 or lomba["kategori"] in kategori_dipilih]
-    if urutan == "Baru diunggah":
-        hasil.sort(key=lambda lomba: lomba["diunggah_hari_lalu"])
-    elif urutan == "Paling populer":
-        hasil.sort(key=lambda lomba: lomba["dilihat"], reverse=True)
-    else:
-        hasil.sort(key=lambda lomba: lomba["sisa_hari"])
-    return hasil
-
-
 def _rentang_tim(teks):
     """'2-4 Anggota' -> (2, 4); 'Individu' -> (1, 1); '3 Anggota' -> (3, 3)."""
     if teks.lower().startswith("individu"):

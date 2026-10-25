@@ -1,6 +1,6 @@
 # views/login_page.py — halaman Masuk
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QWidget
 from views.auth_page import AuthPage
 import config
 import sizes

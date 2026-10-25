@@ -1,6 +1,6 @@
 # views/post_success_page.py — "Berhasil dikirim!" setelah Unggah Info Lomba / Perbaiki & kirim ulang
 from PySide6.QtCore import Qt, QSize, Signal
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton
 from views.base_page import BasePage
 import config
 import data_store
