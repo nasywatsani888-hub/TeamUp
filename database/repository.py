@@ -92,6 +92,8 @@ def muat_users():
         "prodi": r["prodi"], "universitas": r["universitas"], "domisili": r["domisili"], "bio": r["bio"],
         "keahlian": keahlian.get(r["id"], []), "instagram": r["instagram"],
         "pengalaman": pengalaman.get(r["id"], []), "foto": r["foto"],
+        "remark": r["remark"] if "remark" in r.keys() else "",
+        "created_at": r["created_at"] if "created_at" in r.keys() else "",
     } for r in baris]
 
 
@@ -120,11 +122,11 @@ def simpan_user_baru(user):
     """CREATE: pendaftaran. 'password' pada dict harus sudah berupa hash."""
     with db.koneksi() as c:
         cur = c.execute(
-            "INSERT INTO users(nama, email, password, username, prodi, universitas, domisili, bio, instagram, foto) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO users(nama, email, password, username, prodi, universitas, domisili, bio, instagram, foto, remark) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (user["nama"], user["email"], user["password"], user.get("username") or None,
              user.get("prodi", ""), user.get("universitas", ""), user.get("domisili", ""), user.get("bio", ""),
-             user.get("instagram", ""), user.get("foto", "")))
+             user.get("instagram", ""), user.get("foto", ""), user.get("remark", "Pendaftaran mandiri via aplikasi")))
         _tulis_keahlian(c, cur.lastrowid, user.get("keahlian", []))
         _tulis_pengalaman(c, cur.lastrowid, user.get("pengalaman", []))
         return cur.lastrowid
@@ -202,6 +204,8 @@ def _dict_postingan(r, sekarang):
         "alasan_singkat": r["alasan_singkat"], "catatan_admin": r["catatan_admin"],
         "catatan_hari_lalu": _hari_lalu(r["catatan_pada"], sekarang) if r["catatan_pada"] else 0,
         "bagian_diperbaiki": r["bagian_diperbaiki"], "pemilik": r["pemilik"],
+        "remark": r["remark"] if "remark" in r.keys() else "",
+        "dibuat_pada": r["dibuat_pada"] if "dibuat_pada" in r.keys() else "",
     }
 
 
@@ -231,10 +235,10 @@ def tambah_postingan(email_pemilik, data):
     with db.koneksi() as c:
         cur = c.execute(
             "INSERT INTO postingan(user_id, judul, kategori, penyelenggara, deskripsi, tanggal_lomba, tenggat_lomba, "
-            "link, kontak, poster, dokumen, gambar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "link, kontak, poster, dokumen, gambar, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (_id_user(c, email_pemilik), data["judul"], data["kategori"], data["penyelenggara"], data.get("deskripsi", ""),
              _iso(data.get("tanggal_lomba")), _iso(data.get("tenggat_lomba")), data.get("link", ""), data.get("kontak", ""),
-             data.get("poster", ""), data.get("dokumen", ""), (data.get("gambar") or [""])[0]))
+             data.get("poster", ""), data.get("dokumen", ""), (data.get("gambar") or [""])[0], data.get("remark", "Pengajuan baru pengguna")))
         return cur.lastrowid
 
 
@@ -389,3 +393,43 @@ def hapus_riwayat(email, lomba_id=None):
             c.execute("DELETE FROM riwayat WHERE user_id = ? AND lomba_id = ?", (user_id, lomba_id))
         else:
             c.execute("DELETE FROM riwayat WHERE user_id = ?", (user_id,))
+
+
+# ================================================================== AUDIT TRAIL
+def validasi_audit_user(user_id, created_at, remark=None):
+    """
+    Validasi ganda untuk keperluan audit (Sesuai Catatan Dosen):
+    Memvalidasi integritas data pengguna berdasarkan ID dan created_at / remark.
+    Mencegah modifikasi sepihak atau pemalsuan identitas baris database.
+    """
+    with db.koneksi() as c:
+        if remark:
+            baris = c.execute(
+                "SELECT id, nama, email, created_at, remark FROM users WHERE id = ? AND created_at = ? AND remark = ?",
+                (user_id, created_at, remark)
+            ).fetchone()
+        else:
+            baris = c.execute(
+                "SELECT id, nama, email, created_at, remark FROM users WHERE id = ? AND created_at = ?",
+                (user_id, created_at)
+            ).fetchone()
+        return dict(baris) if baris else None
+
+
+def validasi_audit_postingan(post_id, dibuat_pada, remark=None):
+    """
+    Validasi ganda untuk keperluan audit (Sesuai Catatan Dosen):
+    Memvalidasi integritas pengajuan lomba berdasarkan ID dan dibuat_pada / remark.
+    """
+    with db.koneksi() as c:
+        if remark:
+            baris = c.execute(
+                "SELECT id, judul, status, dibuat_pada, remark FROM postingan WHERE id = ? AND dibuat_pada = ? AND remark = ?",
+                (post_id, dibuat_pada, remark)
+            ).fetchone()
+        else:
+            baris = c.execute(
+                "SELECT id, judul, status, dibuat_pada, remark FROM postingan WHERE id = ? AND dibuat_pada = ?",
+                (post_id, dibuat_pada)
+            ).fetchone()
+        return dict(baris) if baris else None

@@ -228,6 +228,23 @@ class TestTeamUpCRUD(unittest.TestCase):
         riwayat_cek = repository.muat_riwayat("farhan@teamup.com")
         self.assertEqual(len(riwayat_cek), 0, "Riwayat user harus ikut terhapus via CASCADE")
 
+    # =========================================================================
+    # 7. PENGUJIAN AUDIT TRAIL & VALIDASI GANDA (CATATAN DOSEN)
+    # =========================================================================
+    def test_08_audit_trail_dan_validasi_ganda(self):
+        """Memverifikasi atribut audit (created_at, remark) dan validasi ganda."""
+        user = repository.muat_users()[0]
+        self.assertTrue(user.get("created_at"), "Record user harus memiliki atribut audit created_at")
+        self.assertTrue("remark" in user, "Record user harus memiliki atribut audit remark")
+
+        # Uji validasi ganda yang sah (ID + created_at)
+        hasil_sah = repository.validasi_audit_user(user["id"], user["created_at"])
+        self.assertIsNotNone(hasil_sah, "Validasi ganda harus berhasil jika ID dan created_at cocok")
+
+        # Uji validasi ganda terhadap data anomali / manipulasi (ID benar, tapi created_at palsu)
+        hasil_palsu = repository.validasi_audit_user(user["id"], "2000-01-01 00:00:00")
+        self.assertIsNone(hasil_palsu, "Validasi ganda harus menolak record yang tidak sinkron dengan waktu audit")
+
 
 def jalankan_demo():
     print("\n" + "=" * 65)

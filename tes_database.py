@@ -108,6 +108,32 @@ def tes_5_foreign_key_integrity():
     print(f"Pengalaman setelah user dihapus: {count_sesudah} buah (Otomatis terhapus via CASCADE).")
 
 
+
+def tes_6_audit_trail_dan_validasi_ganda():
+    garis("TES 6: Audit Trail & Validasi Ganda (ID + created_at / remark)")
+    print("Sesuai arahan dosen: Atribut penting untuk audit (created_at & remark).")
+
+    # 1. Tampilkan jejak audit data yang ada di database
+    user = query_one("SELECT id, nama, email, created_at, remark FROM users LIMIT 1;")
+    if user:
+        print("1. Contoh Record User beserta Atribut Audit:")
+        print(f"   ID         : {user['id']}")
+        print(f"   Nama       : {user['nama']}")
+        print(f"   Email      : {user['email']}")
+        print(f"   Created At : {user['created_at']}")
+        print(f"   Remark     : '{user['remark']}' (Audit: asal-usul data)")
+
+        # 2. Pengujian Validasi Ganda
+        print("\n2. Menguji Validasi Ganda:")
+        print("   a. Mencari dengan ID dan created_at yang COCOK...")
+        valid = query_one("SELECT id, nama FROM users WHERE id = ? AND created_at = ?;", (user['id'], user['created_at']))
+        print(f"      -> Hasil Validasi: {'VALID (Ditemukan: ' + valid['nama'] + ')' if valid else 'TIDAK VALID'}")
+
+        print("   b. Mencari dengan ID benar tapi created_at PALSU/MANIPULASI...")
+        invalid = query_one("SELECT id, nama FROM users WHERE id = ? AND created_at = ?;", (user['id'], '2000-01-01 00:00:00'))
+        print(f"      -> Hasil Validasi: {'VALID' if invalid else 'DITOLAK (Deteksi anomali integritas audit)'}")
+
+
 if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("      DEMO PENGUJIAN DATABASE RELASIONAL (SQLITE NATIVE)      ")
@@ -122,6 +148,7 @@ if __name__ == "__main__":
     tes_3_lomba_dan_syarat()
     tes_4_crud_simulasi()
     tes_5_foreign_key_integrity()
+    tes_6_audit_trail_dan_validasi_ganda()
 
     garis("KESIMPULAN")
     print("Semua tes berhasil 100%! Database siap dipresentasikan di Pertemuan 9.")

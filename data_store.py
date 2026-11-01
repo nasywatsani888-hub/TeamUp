@@ -193,16 +193,6 @@ notifikasi_list = [
      "menit_lalu": 2 * 24 * 60, "dibaca": True},
 ]
 
-# ---------- Jembatan ke SQLite (Pertemuan 10) ----------
-try:
-    from database.seeder import seed_database
-    seed_database()
-    users = repository.muat_users()
-    lomba_list = repository.muat_lomba()
-    postingan_list = repository.muat_postingan()
-    notifikasi_list = repository.muat_notifikasi()
-except Exception as _e:
-    print(f"[DATA_STORE] Inisialisasi basis data: {_e}")
 
 # Postingan lomba yang diunggah user (Unggah Postingan -> Postingan Saya).
 # status: "Ditangguhkan" (sedang ditinjau admin) | "Disetujui" | "Revisi" | "Ditolak"
@@ -283,6 +273,18 @@ current_user = None      # user yang sedang login
 remembered_email = ""    # untuk checkbox "Ingat saya"
 reset_email = ""         # email yang sedang reset password
 otp_code = ""            # kode OTP terakhir yang dibuat
+
+# ---------- Jembatan ke SQLite (Pertemuan 10) ----------
+try:
+    from database.seeder import seed_database
+    seed_database()
+    users = repository.muat_users()
+    lomba_list = repository.muat_lomba()
+    postingan_list = repository.muat_postingan()
+    notifikasi_list = repository.muat_notifikasi()
+except Exception as _e:
+    print(f"[DATA_STORE] Inisialisasi basis data: {_e}")
+
 
 
 def find_user(email, password):

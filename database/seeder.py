@@ -37,8 +37,8 @@ def seed_database():
                 # Password di-hash menggunakan PBKDF2-HMAC-SHA256 (database/sandi.py)
                 pass_hash = sandi.hash_password(u.get("password", "demo1234"))
                 cursor.execute("""
-                    INSERT INTO users (nama, email, password, username, prodi, universitas, domisili, bio, instagram, foto)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    INSERT INTO users (nama, email, password, username, prodi, universitas, domisili, bio, instagram, foto, remark)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """, (
                     u.get("nama", ""),
                     u.get("email", ""),
@@ -49,7 +49,8 @@ def seed_database():
                     u.get("domisili", ""),
                     u.get("bio", ""),
                     u.get("instagram", ""),
-                    u.get("foto", "")
+                    u.get("foto", ""),
+                    u.get("remark", "Akun contoh seeder")
                 ))
                 user_id = cursor.lastrowid
 
@@ -83,8 +84,8 @@ def seed_database():
                     INSERT INTO lomba (
                         id, judul, penyelenggara, kategori, warna,
                         tanggal_pelaksanaan, tenggat_pendaftaran, tim_min, tim_maks,
-                        deskripsi, link, diunggah_pada, dilihat, jenis, cakupan, biaya
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                        deskripsi, link, diunggah_pada, dilihat, jenis, cakupan, biaya, remark
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """, (
                     l.get("id"),
                     l.get("judul", ""),
@@ -101,7 +102,8 @@ def seed_database():
                     l.get("dilihat", 0),
                     l.get("jenis", "Lainnya"),
                     l.get("cakupan", "Nasional"),
-                    l.get("biaya", "Gratis")
+                    l.get("biaya", "Gratis"),
+                    l.get("remark", "Lomba contoh seeder")
                 ))
                 lomba_id = l.get("id")
 
@@ -147,8 +149,8 @@ def seed_database():
                         tanggal_lomba, tenggat_lomba, link, kontak, poster, dokumen, gambar,
                         status, dilihat, tersimpan, partner_tertarik,
                         alasan_singkat, catatan_admin, catatan_pada, bagian_diperbaiki,
-                        dibuat_pada, diperbarui_pada
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                        remark, dibuat_pada, diperbarui_pada
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """, (
                     p.get("id"),
                     1,
@@ -171,6 +173,7 @@ def seed_database():
                     p.get("catatan_admin", ""),
                     catatan_iso,
                     p.get("bagian_diperbaiki", ""),
+                    p.get("remark", "Postingan contoh seeder"),
                     dibuat_iso,
                     dibuat_iso
                 ))

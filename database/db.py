@@ -15,7 +15,7 @@ from contextlib import contextmanager
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get("TEAMUP_DB") or os.path.join(BASE_DIR, "teamup.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
-SKEMA_VERSI = 2   # naikkan setiap kali schema.sql berubah
+SKEMA_VERSI = 3   # naikkan setiap kali schema.sql berubah (v3: penambahan kolom remark audit)
 
 
 def gunakan_database(path):

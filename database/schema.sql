@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
     bio         TEXT NOT NULL DEFAULT '',
     instagram   TEXT NOT NULL DEFAULT '',
     foto        TEXT NOT NULL DEFAULT '',
+    remark      TEXT NOT NULL DEFAULT '',            -- Catatan audit sistem (mis. "Pendaftaran mandiri", "Akun bawaan")
     created_at  TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
@@ -77,7 +78,8 @@ CREATE TABLE IF NOT EXISTS lomba (
                         CHECK (jenis IN ('Hackathon', 'KTI/PKM', 'Desain/UI-UX', 'Lainnya')),
     cakupan             TEXT NOT NULL DEFAULT 'Nasional'
                         CHECK (cakupan IN ('Lokal/Regional', 'Nasional', 'Internasional')),
-    biaya               TEXT NOT NULL DEFAULT 'Gratis' CHECK (biaya IN ('Gratis', 'Berbayar'))
+    biaya               TEXT NOT NULL DEFAULT 'Gratis' CHECK (biaya IN ('Gratis', 'Berbayar')),
+    remark              TEXT NOT NULL DEFAULT ''             -- Catatan audit (mis. "Verifikasi kurator", "Seeder")
 );
 CREATE INDEX IF NOT EXISTS idx_lomba_kategori ON lomba(kategori);
 CREATE INDEX IF NOT EXISTS idx_lomba_tenggat  ON lomba(tenggat_pendaftaran);
@@ -130,6 +132,7 @@ CREATE TABLE IF NOT EXISTS postingan (
     catatan_admin     TEXT NOT NULL DEFAULT '',
     catatan_pada      TEXT,                                -- kapan admin menulis catatan
     bagian_diperbaiki TEXT NOT NULL DEFAULT '' CHECK (bagian_diperbaiki IN ('', 'link')),
+    remark            TEXT NOT NULL DEFAULT '',            -- Catatan audit transaksi (mis. "Pengajuan baru", "Disetujui admin")
     dibuat_pada       TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     diperbarui_pada   TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
