@@ -118,6 +118,7 @@ class MainWindow(QMainWindow):
         self.show_page(self.account_created_page)
 
     def handle_biodata_saved(self, user_data):
+        data_store.simpan_profil(user_data)
         data_store.current_user = data_store.get_user(user_data["email"])
         self.show_page(self.dashboard_page)   # ganti ke self.login_page kalau mau balik ke Login dulu
 

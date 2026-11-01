@@ -192,6 +192,45 @@ Berikut adalah beberapa pertanyaan teknis yang sering ditanyakan dosen beserta c
 > **Jawaban:**  
 > *"Kami mengikuti best practice arsitektur sistem: database hanya menyimpan string path atau nama file (misal `marques.png`). File gambarnya sendiri disimpan di sistem berkas lokal (`assets/`). Hal ini menjaga agar ukuran file database tetap kecil, cepat di-query, dan mendukung mekanisme lazy loading di memori."*
 
-#### Q5: "Di ERD ada tabel `tim` dan `anggota_tim`, tapi di aplikasinya belum ada halaman Tim?"
+#### Q5: "Mengapa ada kolom `created_at` dan `remark` di hampir setiap tabel?"
+> **Jawaban:**  
+> *"Meskipun atribut ini seringkali tidak dicantumkan di Business Model Canvas (BMC) pengguna akhir, `created_at` dan `remark` adalah standar penting untuk **audit trail dan integritas data**. Dengan adanya dua atribut ini, sistem dapat melakukan **validasi ganda**: memverifikasi keabsahan data tidak hanya berdasarkan `id`, melainkan juga stempel waktu pembuatan (`created_at`) serta jejak catatan audit/status asal data (`remark`)."*
+
+#### Q6: "Di ERD ada tabel `tim` dan `anggota_tim`, tapi di aplikasinya belum ada halaman Tim?"
 > **Jawaban:**  
 > *"Benar Pak/Bu. Sesuai roadmap pengembangan aplikasi yang kami rencanakan dari Pertemuan 2, fitur pembentukan tim dijadwalkan pada tahap lanjutan. Kami sengaja merancang tabel `tim` dan `anggota_tim` sejak tahap perancangan skema ini agar struktur database sudah scalable dan siap mendukung fitur tersebut tanpa perlu merombak ulang skema yang sudah ada."*
+
+---
+
+## 7. Pertemuan 10 — Implementasi CRUD & Data Persistence
+
+Pada tahap ini, seluruh komponen visual telah terhubung secara penuh ke basis data SQLite:
+
+### Arsitektur Alur Data (Data Flow):
+```
+[Tampilan Visual / Form UI] (PySide6 / QML)
+            │
+            ▼  (Signal / Event)
+[data_store.py] (Jembatan Adapter Data)
+            │
+            ▼  (Fungsi Transaksional Native SQL)
+[database/repository.py] + [database/sandi.py]
+            │
+            ▼  (PRAGMA WAL + Foreign Key ON)
+[teamup.db] (File Database SQLite Lokal)
+```
+
+### Uji Otomatis Terisolasi (`tes_crud.py`):
+Untuk membuktikan bahwa seluruh operasi CRUD dan aturan bisnis berjalan tanpa cacat dan tanpa mengotori database utama, jalankan:
+```bash
+python tes_crud.py
+```
+Hasil uji:
+* `test_01`: Create user & enkripsi password (PBKDF2-HMAC-SHA256).
+* `test_02`: Penolakan duplikasi email (UNIQUE constraint).
+* `test_03`: Update biodata, relasi N-N keahlian, dan 1-N pengalaman dalam satu transaksi atomic.
+* `test_04`: Counter dilihat pada kompetisi saat detail dibuka.
+* `test_05`: Siklus hidup postingan (Buat -> Revisi -> Perbaiki -> Setujui -> Tolak hapus postingan yang disetujui).
+* `test_06`: Riwayat lomba (UPSERT tanpa duplikasi) dan notifikasi.
+* `test_07`: Hapus user dan integritas referensial CASCADE.
+

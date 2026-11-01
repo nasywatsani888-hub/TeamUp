@@ -386,14 +386,17 @@ class PostFormPage(BasePage):
     def selesaikan(self, data):
         """Dipanggil di THREAD UI setelah semua berkas tersalin. Data bersama (data_store) hanya diubah di sini."""
         self.set_mengirim(False)
-        if self.mode == "revisi":
-            post = data_store.kirim_ulang_postingan(self.post_id, data)
-        else:
-            user = data_store.current_user
-            data["penyelenggara"] = user["universitas"] if user and user.get("universitas") else "Penyelenggara"
-            post = data_store.tambah_postingan(data)
-        self.message_label.setText("")
-        self.submitted.emit(post["id"], self.mode)
+        try:
+            if self.mode == "revisi":
+                post = data_store.kirim_ulang_postingan(self.post_id, data)
+            else:
+                user = data_store.current_user
+                data["penyelenggara"] = user["universitas"] if user and user.get("universitas") else "Penyelenggara"
+                post = data_store.tambah_postingan(data)
+            self.message_label.setText("")
+            self.submitted.emit(post["id"], self.mode)
+        except Exception as e:
+            helpers.show_error(self.message_label, f"Gagal menyimpan ke database: {e}")
 
     def gagal_kirim(self, pesan):
         self.set_mengirim(False)

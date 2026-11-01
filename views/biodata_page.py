@@ -101,7 +101,11 @@ class BiodataPage(AuthPage):
         user["domisili"] = domisili
         user["bio"] = self.bio_input.toPlainText().strip()
         user["keahlian"] = list(self.skills)
-        self.biodata_saved.emit(user)
+        try:
+            data_store.simpan_profil(user)
+            self.biodata_saved.emit(user)
+        except Exception as e:
+            helpers.show_error(self.message_label, f"Gagal menyimpan biodata: {e}")
 
     def on_show(self):
         user = data_store.current_user

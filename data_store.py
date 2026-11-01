@@ -2,6 +2,7 @@
 # Data hilang saat aplikasi ditutup. Database baru dipakai di pertemuan 9.
 import random
 from datetime import date
+from database import db, repository, sandi
 
 users = [
     {
@@ -192,6 +193,17 @@ notifikasi_list = [
      "menit_lalu": 2 * 24 * 60, "dibaca": True},
 ]
 
+# ---------- Jembatan ke SQLite (Pertemuan 10) ----------
+try:
+    from database.seeder import seed_database
+    seed_database()
+    users = repository.muat_users()
+    lomba_list = repository.muat_lomba()
+    postingan_list = repository.muat_postingan()
+    notifikasi_list = repository.muat_notifikasi()
+except Exception as _e:
+    print(f"[DATA_STORE] Inisialisasi basis data: {_e}")
+
 # Postingan lomba yang diunggah user (Unggah Postingan -> Postingan Saya).
 # status: "Ditangguhkan" (sedang ditinjau admin) | "Disetujui" | "Revisi" | "Ditolak"
 # alasan_singkat = ringkasan 1 baris di daftar; catatan_admin = penjelasan lengkap dari admin.
@@ -275,7 +287,7 @@ otp_code = ""            # kode OTP terakhir yang dibuat
 
 def find_user(email, password):
     for user in users:
-        if user["email"].lower() == email.lower() and user["password"] == password:
+        if user["email"].lower() == email.lower() and sandi.cocok(user["password"], password):
             return user
     return None
 
@@ -305,10 +317,11 @@ def username_exists(username, except_user=None):
 
 
 def add_user(nama, email, password):
+    pass_hash = sandi.hash_password(password)
     user = {
         "nama": nama,
         "email": email,
-        "password": password,
+        "password": pass_hash,
         "username": "",
         "prodi": "",
         "universitas": "",
@@ -319,8 +332,30 @@ def add_user(nama, email, password):
         "pengalaman": [],
         "foto": "",
     }
+    try:
+        user_id = repository.simpan_user_baru(user)
+        user["id"] = user_id
+    except Exception as e:
+        print(f"[DATA_STORE] Error simpan_user_baru: {e}")
     users.append(user)
     return user
+
+
+def simpan_profil(user=None):
+    """Menyimpan pembaruan profil user ke database SQLite secara persisten."""
+    global current_user, users
+    user = user or current_user
+    if user and user.get("email"):
+        try:
+            repository.perbarui_user(user["email"], user)
+        except Exception as e:
+            print(f"[DATA_STORE] Error perbarui_user: {e}")
+        for i, u in enumerate(users):
+            if u["email"].lower() == user["email"].lower():
+                users[i].update(user)
+                if current_user and current_user["email"].lower() == user["email"].lower():
+                    current_user = users[i]
+                break
 
 
 def generate_otp(email):
@@ -332,9 +367,14 @@ def generate_otp(email):
 
 
 def update_password(email, new_password):
+    pass_hash = sandi.hash_password(new_password)
+    try:
+        repository.perbarui_password(email, pass_hash)
+    except Exception as e:
+        print(f"[DATA_STORE] Error perbarui_password: {e}")
     for user in users:
         if user["email"].lower() == email.lower():
-            user["password"] = new_password
+            user["password"] = pass_hash
 
 
 def is_biodata_complete(user):
@@ -345,6 +385,11 @@ def is_biodata_complete(user):
 def get_lomba(lomba_id):
     for lomba in lomba_list:
         if lomba["id"] == lomba_id:
+            try:
+                repository.tambah_lomba_dilihat(lomba_id)
+                lomba["dilihat"] = lomba.get("dilihat", 0) + 1
+            except Exception:
+                pass
             return lomba
     return None
 
@@ -356,6 +401,11 @@ def get_upcoming(count):
 
 def add_to_history(lomba_id):
     """Dicatat setiap lomba dibuka; yang terbaru di urutan pertama."""
+    if current_user and current_user.get("email"):
+        try:
+            repository.catat_riwayat(current_user["email"], lomba_id)
+        except Exception:
+            pass
     if lomba_id in history:
         history.remove(lomba_id)
     history.insert(0, lomba_id)
@@ -488,30 +538,54 @@ def get_postingan_by_id(post_id):
 
 
 def tambah_postingan(data):
-    """Postingan baru dari form Unggah Info Lomba -> status Ditangguhkan, paling atas."""
-    post_id = max([post["id"] for post in postingan_list], default=0) + 1
-    post = _postingan_baru(post_id, data)
-    postingan_list.insert(0, post)
-    return post
+    """Postingan baru dari form Unggah Info Lomba -> simpan ke DB via repository, status Ditangguhkan."""
+    email = current_user["email"] if current_user else "demo@teamup.com"
+    global postingan_list
+    try:
+        post_id = repository.tambah_postingan(email, data)
+        postingan_list = repository.muat_postingan()
+        return get_postingan_by_id(post_id)
+    except Exception as e:
+        print(f"[DATA_STORE] Error tambah_postingan: {e}")
+        post_id = max([post["id"] for post in postingan_list], default=0) + 1
+        post = _postingan_baru(post_id, data)
+        postingan_list.insert(0, post)
+        return post
 
 
 def kirim_ulang_postingan(post_id, data):
-    """Perbaikan dari status Revisi -> data diganti, status kembali Ditangguhkan."""
-    post = get_postingan_by_id(post_id)
-    post.update(data)
-    post["status"] = "Ditangguhkan"
-    post["diunggah_hari_lalu"] = 0
-    post["alasan_singkat"] = ""
-    post["catatan_admin"] = ""
-    post["bagian_diperbaiki"] = ""
-    return post
+    """Perbaikan dari status Revisi -> simpan ke DB via repository, status kembali Ditangguhkan."""
+    email = current_user["email"] if current_user else None
+    global postingan_list
+    try:
+        repository.perbarui_postingan(post_id, data, email)
+        postingan_list = repository.muat_postingan()
+        return get_postingan_by_id(post_id)
+    except Exception as e:
+        print(f"[DATA_STORE] Error kirim_ulang_postingan: {e}")
+        post = get_postingan_by_id(post_id)
+        if post:
+            post.update(data)
+            post["status"] = "Ditangguhkan"
+            post["diunggah_hari_lalu"] = 0
+            post["alasan_singkat"] = ""
+            post["catatan_admin"] = ""
+            post["bagian_diperbaiki"] = ""
+        return post
 
 
 def hapus_postingan(post_id):
-    """Dipakai untuk 'Batalkan pengajuan' (Ditangguhkan) dan 'Hapus pengajuan' (Revisi / Ditolak)."""
-    post = get_postingan_by_id(post_id)
-    if post is not None:
-        postingan_list.remove(post)
+    """Batalkan/hapus pengajuan dari DB via repository."""
+    email = current_user["email"] if current_user else None
+    global postingan_list
+    try:
+        repository.hapus_postingan(post_id, email)
+        postingan_list = repository.muat_postingan()
+    except Exception as e:
+        print(f"[DATA_STORE] Error hapus_postingan: {e}")
+        post = get_postingan_by_id(post_id)
+        if post is not None:
+            postingan_list.remove(post)
 
 
 def hitung_postingan():
@@ -536,6 +610,10 @@ def get_notifikasi_by_id(notif_id):
 
 
 def tandai_dibaca(notif_id):
+    try:
+        repository.tandai_dibaca(notif_id)
+    except Exception:
+        pass
     notif = get_notifikasi_by_id(notif_id)
     if notif is not None:
         notif["dibaca"] = True
@@ -543,10 +621,15 @@ def tandai_dibaca(notif_id):
 
 def get_history():
     """Lomba yang pernah dibuka user, yang terbaru di atas."""
-    # Indeks id -> lomba dibuat SEKALI (O(N)), lalu tiap id dicari langsung (O(1)).
-    # Dulu get_lomba() memindai seluruh lomba_list untuk SETIAP id -> waktu naik kuadrat
-    # (O(N x M)): 10 ms @1.000 data, 296 ms @5.000, 6,4 detik @20.000.
+    global history
+    if current_user and current_user.get("email"):
+        try:
+            db_history = repository.muat_riwayat(current_user["email"])
+            if db_history:
+                history = db_history
+        except Exception:
+            pass
     indeks = {}
     for lomba in lomba_list:
-        indeks.setdefault(lomba["id"], lomba)   # id kembar: ambil yang pertama, sama seperti get_lomba()
-    return [indeks.get(lomba_id) for lomba_id in history]
+        indeks.setdefault(lomba["id"], lomba)
+    return [indeks.get(lomba_id) for lomba_id in history if lomba_id in indeks]

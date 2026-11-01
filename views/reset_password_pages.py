@@ -151,8 +151,11 @@ class NewPasswordPage(AuthPage):
         if password != confirm:
             helpers.show_error(self.message_label, "Konfirmasi password tidak sama.")
             return
-        data_store.update_password(data_store.reset_email, password)
-        self.password_updated.emit()
+        try:
+            data_store.update_password(data_store.reset_email, password)
+            self.password_updated.emit()
+        except Exception as e:
+            helpers.show_error(self.message_label, f"Gagal memperbarui password: {e}")
 
     def on_show(self):
         self.password_input.clear()

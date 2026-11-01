@@ -159,6 +159,7 @@ class DashboardPage(BasePage):
             self.show_content("beranda")   # Batal -> Beranda
 
     def handle_profile_saved(self, user):
+        data_store.simpan_profil(user)
         QMessageBox.information(self, "Edit Profil", "Profil berhasil disimpan.")
         self.show_content("beranda")
 
@@ -216,9 +217,12 @@ class DashboardPage(BasePage):
             "Setelah pengajuan dibatalkan, anda perlu mengajukan kembali jika ingin terus mengunggah",
             "Ya, batalkan pengajuan")
         if self.run_dialog(dialog):
-            salinan = dict(post)                      # detail tetap menampilkan datanya + banner berhasil
-            data_store.hapus_postingan(post_id)
-            self.post_detail_page.show_post(post_id, cancelled=True, salinan=salinan)
+            salinan = dict(post)
+            try:
+                data_store.hapus_postingan(post_id)
+                self.post_detail_page.show_post(post_id, cancelled=True, salinan=salinan)
+            except Exception as e:
+                QMessageBox.warning(self, "Tidak Dapat Dibatalkan", str(e))
 
     def handle_post_delete(self, post_id):
         post = data_store.get_postingan_by_id(post_id)
@@ -228,8 +232,11 @@ class DashboardPage(BasePage):
             "Setelah pengajuan dihapus, pengajuan akan dibatalkan dan tidak akan diteruskan ke proses "
             "verifikasi admin", "Ya, hapus pengajuan")
         if self.run_dialog(dialog):
-            data_store.hapus_postingan(post_id)
-            self.show_content("unggah")
+            try:
+                data_store.hapus_postingan(post_id)
+                self.show_content("unggah")
+            except Exception as e:
+                QMessageBox.warning(self, "Tidak Dapat Dihapus", str(e))
 
     def handle_lomba_detail(self, lomba_id):
         data_store.add_to_history(lomba_id)   # dicatat ke Riwayat setiap dibuka

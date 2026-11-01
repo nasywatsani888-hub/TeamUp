@@ -75,9 +75,11 @@ def tes_4_crud_simulasi():
     print(f"   -> Berhasil di-insert dengan ID: {new_id}")
 
     # 2. Select
-    user = query_one("SELECT id, nama, email, username FROM users WHERE id = ?;", (new_id,))
+    user = query_one("SELECT id, nama, email, username, created_at FROM users WHERE id = ?;", (new_id,))
     print(f"2. Hasil SELECT data yang baru dibuat:")
-    print(f"   ID: {user['id']} | Nama: {user['nama']} | Username: @{user['username']}")
+    print(f"   ID         : {user['id']}")
+    print(f"   Nama       : {user['nama']} (@{user['username']})")
+    print(f"   Created At : {user['created_at']}")
 
     # 3. Delete
     print("3. Menghapus data percobaan (DELETE)...")

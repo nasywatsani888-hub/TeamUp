@@ -15,7 +15,7 @@ from database import db, sandi
 
 
 class DataTidakValid(Exception):
-    """Data melanggar batasan database (UNIQUE, CHECK, FOREIGN KEY, ...)."""
+    """Data melanggar batasan database (UNIQUE, CHECK, FOREIGN KEY, ...) atau kesalahan operasional."""
 
 
 class AturanBisnis(DataTidakValid):
@@ -67,11 +67,11 @@ def teks_tim(tim_min, tim_maks):
 
 
 def _bungkus(fungsi):
-    """Ubah error sqlite3 menjadi DataTidakValid agar lapisan atas tidak perlu tahu detail sqlite3."""
+    """Ubah error sqlite3 (IntegrityError dan OperationalError) menjadi DataTidakValid agar lapisan UI bersih."""
     def pembungkus(*args, **kwargs):
         try:
             return fungsi(*args, **kwargs)
-        except sqlite3.IntegrityError as error:
+        except (sqlite3.IntegrityError, sqlite3.OperationalError) as error:
             raise DataTidakValid(str(error)) from error
     pembungkus.__name__ = fungsi.__name__
     pembungkus.__doc__ = fungsi.__doc__
@@ -88,7 +88,7 @@ def muat_users():
         for r in c.execute("SELECT user_id, judul FROM pengalaman ORDER BY id"):
             pengalaman.setdefault(r["user_id"], []).append(r["judul"])
     return [{
-        "nama": r["nama"], "email": r["email"], "password": r["password"], "username": r["username"] or "",
+        "id": r["id"], "nama": r["nama"], "email": r["email"], "password": r["password"], "username": r["username"] or "",
         "prodi": r["prodi"], "universitas": r["universitas"], "domisili": r["domisili"], "bio": r["bio"],
         "keahlian": keahlian.get(r["id"], []), "instagram": r["instagram"],
         "pengalaman": pengalaman.get(r["id"], []), "foto": r["foto"],
@@ -152,6 +152,14 @@ def perbarui_password(email, password_hash):
         c.execute("UPDATE users SET password = ? WHERE id = ?", (password_hash, _id_user(c, email)))
 
 
+@_bungkus
+def hapus_user(email):
+    """DELETE akun user. Relasi keahlian, pengalaman, riwayat, dll otomatis terhapus via CASCADE."""
+    with db.koneksi() as c:
+        c.execute("DELETE FROM users WHERE email = ?", (email,))
+        return True
+
+
 # ================================================================== LOMBA
 def muat_lomba():
     sekarang = _sekarang()
@@ -175,6 +183,13 @@ def muat_lomba():
     } for r in baris]
 
 
+@_bungkus
+def tambah_lomba_dilihat(lomba_id):
+    """Menaikkan counter dilihat pada kompetisi saat detail lomba dibuka."""
+    with db.koneksi() as c:
+        c.execute("UPDATE lomba SET dilihat = dilihat + 1 WHERE id = ?", (lomba_id,))
+
+
 # ================================================================== POSTINGAN
 def _dict_postingan(r, sekarang):
     return {
@@ -190,11 +205,23 @@ def _dict_postingan(r, sekarang):
     }
 
 
-def muat_postingan():
+def muat_postingan(email_pemilik=None, status=None):
+    """Memuat postingan lomba, mendukung filter pemilik dan status di level SQL."""
     sekarang = _sekarang()
     with db.koneksi() as c:
-        rows = c.execute("SELECT p.*, u.email AS pemilik FROM postingan p JOIN users u ON u.id = p.user_id "
-                         "ORDER BY p.dibuat_pada DESC, p.id DESC").fetchall()
+        sql = "SELECT p.*, u.email AS pemilik FROM postingan p JOIN users u ON u.id = p.user_id"
+        kondisi = []
+        params = []
+        if email_pemilik:
+            kondisi.append("u.email = ?")
+            params.append(email_pemilik)
+        if status:
+            kondisi.append("p.status = ?")
+            params.append(status)
+        if kondisi:
+            sql += " WHERE " + " AND ".join(kondisi)
+        sql += " ORDER BY p.dibuat_pada DESC, p.id DESC"
+        rows = c.execute(sql, params).fetchall()
     return [_dict_postingan(r, sekarang) for r in rows]
 
 
@@ -212,34 +239,48 @@ def tambah_postingan(email_pemilik, data):
 
 
 @_bungkus
-def perbarui_postingan(post_id, data):
+def perbarui_postingan(post_id, data, email_pemilik=None):
     """UPDATE (kirim ulang perbaikan). ATURAN: hanya postingan berstatus Revisi. Status kembali Ditangguhkan."""
     with db.koneksi() as c:
-        baris = c.execute("SELECT status FROM postingan WHERE id = ?", (post_id,)).fetchone()
+        baris = c.execute("SELECT status, user_id FROM postingan WHERE id = ?", (post_id,)).fetchone()
         if baris is None:
             raise DataTidakValid(f"Postingan {post_id} tidak ditemukan")
+        if email_pemilik and baris["user_id"] != _id_user(c, email_pemilik):
+            raise AturanBisnis("Hanya pemilik yang dapat memperbarui postingan ini")
         if baris["status"] != "Revisi":
             raise AturanBisnis(f"Hanya postingan berstatus Revisi yang bisa diperbarui (status sekarang: {baris['status']})")
         kolom = [k for k in KOLOM_POSTINGAN if k in data]
         nilai = [_iso(data[k]) if k in ("tanggal_lomba", "tenggat_lomba") else data[k] for k in kolom]
         sekarang = _tulis_waktu(_sekarang())
+        set_kolom = (', '.join(k + ' = ?' for k in kolom) + ', ') if kolom else ''
         c.execute(
-            f"UPDATE postingan SET {', '.join(k + ' = ?' for k in kolom)}, status = 'Ditangguhkan', "   # kolom: daftar putih
+            f"UPDATE postingan SET {set_kolom}status = 'Ditangguhkan', "
             "alasan_singkat = '', catatan_admin = '', catatan_pada = NULL, bagian_diperbaiki = '', "
             "dibuat_pada = ?, diperbarui_pada = ? WHERE id = ?", (*nilai, sekarang, sekarang, post_id))
 
 
 @_bungkus
-def hapus_postingan(post_id):
+def hapus_postingan(post_id, email_pemilik=None):
     """DELETE (batalkan / hapus pengajuan). ATURAN: postingan yang sudah Disetujui tidak boleh dihapus pemiliknya."""
     with db.koneksi() as c:
-        baris = c.execute("SELECT status FROM postingan WHERE id = ?", (post_id,)).fetchone()
+        baris = c.execute("SELECT status, user_id FROM postingan WHERE id = ?", (post_id,)).fetchone()
         if baris is None:
             return False
+        if email_pemilik and baris["user_id"] != _id_user(c, email_pemilik):
+            raise AturanBisnis("Hanya pemilik yang dapat menghapus pengajuan ini")
         if baris["status"] == "Disetujui":
             raise AturanBisnis("Postingan yang sudah disetujui tidak bisa dihapus")
         c.execute("DELETE FROM postingan WHERE id = ?", (post_id,))
         return True
+
+
+@_bungkus
+def tambah_postingan_counter(post_id, kolom, delta=1):
+    """Menaikkan counter postingan: dilihat, tersimpan, atau partner_tertarik."""
+    if kolom not in ("dilihat", "tersimpan", "partner_tertarik"):
+        raise DataTidakValid(f"Kolom counter tidak dikenal: {kolom}")
+    with db.koneksi() as c:
+        c.execute(f"UPDATE postingan SET {kolom} = MAX(0, {kolom} + ?) WHERE id = ?", (delta, post_id))
 
 
 @_bungkus
@@ -259,13 +300,24 @@ def putuskan_postingan(post_id, status, alasan_singkat="", catatan_admin="", bag
 
 
 # ================================================================== NOTIFIKASI
-def muat_notifikasi():
+def muat_notifikasi(email_pemilik=None, hanya_belum_dibaca=False):
+    """Memuat notifikasi pengguna, mendukung filter penerima dan status baca di SQL."""
     sekarang = _sekarang()
     with db.koneksi() as c:
-        rows = c.execute(
-            "SELECT n.*, u.email AS pemilik, s.nama AS nama_pengirim, s.email AS email_pengirim "
-            "FROM notifikasi n JOIN users u ON u.id = n.user_id LEFT JOIN users s ON s.id = n.pengirim_id "
-            "ORDER BY n.dibuat_pada DESC, n.id DESC").fetchall()
+        sql = ("SELECT n.*, u.email AS pemilik, s.nama AS nama_pengirim, s.email AS email_pengirim "
+               "FROM notifikasi n JOIN users u ON u.id = n.user_id LEFT JOIN users s ON s.id = n.pengirim_id")
+        kondisi = []
+        params = []
+        if email_pemilik:
+            kondisi.append("u.email = ?")
+            params.append(email_pemilik)
+        if hanya_belum_dibaca:
+            kondisi.append("n.dibaca = 0")
+        if kondisi:
+            sql += " WHERE " + " AND ".join(kondisi)
+        sql += " ORDER BY n.dibuat_pada DESC, n.id DESC"
+        rows = c.execute(sql, params).fetchall()
+
     hasil = []
     for r in rows:
         item = {"id": r["id"], "jenis": r["jenis"]}
@@ -291,6 +343,25 @@ def tandai_dibaca(notif_id):
         c.execute("UPDATE notifikasi SET dibaca = 1 WHERE id = ?", (notif_id,))
 
 
+@_bungkus
+def tandai_semua_notifikasi_dibaca(email_penerima):
+    """Menandai seluruh notifikasi milik user menjadi sudah dibaca."""
+    with db.koneksi() as c:
+        user_id = _id_user(c, email_penerima)
+        c.execute("UPDATE notifikasi SET dibaca = 1 WHERE user_id = ?", (user_id,))
+
+
+@_bungkus
+def hapus_notifikasi(notif_id, email_pemilik=None):
+    """Menghapus satu notifikasi."""
+    with db.koneksi() as c:
+        if email_pemilik:
+            user_id = _id_user(c, email_pemilik)
+            c.execute("DELETE FROM notifikasi WHERE id = ? AND user_id = ?", (notif_id, user_id))
+        else:
+            c.execute("DELETE FROM notifikasi WHERE id = ?", (notif_id,))
+
+
 # ================================================================== RIWAYAT
 def muat_riwayat(email):
     """id lomba yang pernah dibuka user ini, yang TERBARU di depan."""
@@ -307,3 +378,14 @@ def catat_riwayat(email, lomba_id):
         c.execute("INSERT INTO riwayat(user_id, lomba_id, dibuka_pada) VALUES (?, ?, ?) "
                   "ON CONFLICT(user_id, lomba_id) DO UPDATE SET dibuka_pada = excluded.dibuka_pada",
                   (_id_user(c, email), lomba_id, _sekarang().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]))
+
+
+@_bungkus
+def hapus_riwayat(email, lomba_id=None):
+    """Hapus satu entri riwayat lomba, atau hapus seluruh riwayat jika lomba_id=None."""
+    with db.koneksi() as c:
+        user_id = _id_user(c, email)
+        if lomba_id is not None:
+            c.execute("DELETE FROM riwayat WHERE user_id = ? AND lomba_id = ?", (user_id, lomba_id))
+        else:
+            c.execute("DELETE FROM riwayat WHERE user_id = ?", (user_id,))

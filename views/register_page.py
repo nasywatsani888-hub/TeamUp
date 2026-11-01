@@ -66,8 +66,11 @@ class RegisterPage(AuthPage):
             helpers.show_error(self.message_label, "Setujui syarat & ketentuan terlebih dahulu.")
             return
 
-        user = data_store.add_user(name, email, password)
-        self.register_success.emit(user)
+        try:
+            user = data_store.add_user(name, email, password)
+            self.register_success.emit(user)
+        except Exception as e:
+            helpers.show_error(self.message_label, str(e))
 
     def on_show(self):
         self.name_input.clear()

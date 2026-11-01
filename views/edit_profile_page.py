@@ -342,7 +342,11 @@ class EditProfilePage(BasePage):
         user["keahlian"] = list(self.skills)
         user["pengalaman"] = list(self.experiences)
         user["foto"] = self.photo_name
-        self.profile_saved.emit(user)
+        try:
+            data_store.simpan_profil(user)
+            self.profile_saved.emit(user)
+        except Exception as e:
+            helpers.show_error(self.message_label, f"Gagal menyimpan profil: {e}")
 
     # ---------- Widget Lifecycle ----------
     def on_show(self):
