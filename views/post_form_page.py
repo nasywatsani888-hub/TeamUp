@@ -9,6 +9,8 @@ from views.base_page import BasePage
 from views.upload_dialog import DropZone
 import config
 import data_store
+import enkripsi
+import file_storage
 import helpers
 import icons
 import sizes
@@ -22,7 +24,8 @@ UKURAN_POTONGAN = 1024 * 1024   # berkas disalin per 1 MB supaya progres & pemba
 def salin_berkas(kontrol, daftar):
     """Dijalankan WORKER (thread lain). daftar = [(sumber, tujuan), ...].
     Menyalin per potongan sambil melapor progres. Kalau dibatalkan / gagal, berkas yang sudah
-    terlanjur dibuat dihapus lagi -> tidak ada sampah setengah jadi. Tidak menyentuh widget / data_store."""
+    terlanjur dibuat dihapus lagi -> tidak ada sampah setengah jadi. Tidak menyentuh widget / data_store.
+    Tujuan berakhiran ".enc" (dokumen pendukung) ENKRIPSI saat disimpan, bukan disalin apa adanya."""
     total = sum(os.path.getsize(sumber) for sumber, _ in daftar) or 1
     selesai = 0
     dibuat = []
@@ -31,6 +34,13 @@ def salin_berkas(kontrol, daftar):
         for sumber, tujuan in daftar:
             os.makedirs(os.path.dirname(tujuan), exist_ok=True)
             dibuat.append(tujuan)
+            if tujuan.endswith(".enc"):
+                if kontrol.dibatalkan:
+                    return None
+                enkripsi.enkripsi_berkas(sumber, tujuan)          # atomik, diproses per 1 MB
+                selesai += os.path.getsize(sumber)
+                kontrol.laporkan(selesai * 100 // total)
+                continue
             with open(sumber, "rb") as masuk, open(tujuan, "wb") as keluar:
                 while True:
                     potongan = masuk.read(UKURAN_POTONGAN)
@@ -48,6 +58,14 @@ def salin_berkas(kontrol, daftar):
             for tujuan in dibuat:
                 if os.path.exists(tujuan):
                     os.remove(tujuan)
+
+
+def nama_tampil(nama):
+    """Nama berkas tersimpan -> nama yang enak dibaca user: '1699999_Proposal.pdf.enc' -> 'Proposal.pdf'."""
+    if nama.endswith(".enc"):
+        nama = nama[:-4]
+    awal, _, sisa = nama.partition("_")
+    return sisa if awal.isdigit() and sisa else nama
 
 
 class FileField(QWidget):
@@ -88,13 +106,9 @@ class FileField(QWidget):
             self.handle_file_chosen(path)
 
     def handle_file_chosen(self, path):
-        extension = os.path.splitext(path)[1].lower()
-        if not os.path.isfile(path) or extension not in self.extensions:
-            formats = ", ".join(ext.lstrip(".").upper() for ext in self.extensions)
-            self.show_error(f"Format file harus {formats}.")
-            return
-        if os.path.getsize(path) > self.max_mb * 1024 * 1024:
-            self.show_error(f"Ukuran file maksimal {self.max_mb} MB.")
+        ok, pesan = file_storage.periksa_berkas(path, self.extensions, self.max_mb)   # format, ukuran, kosong
+        if not ok:
+            self.show_error(pesan)
             return
         self.error_label.hide()
         self.path = path
@@ -114,7 +128,7 @@ class FileField(QWidget):
         self.path = ""
         self.existing = name
         self.error_label.hide()
-        self.zone.text_label.setText(name if name else "Tarik atau pilih file")
+        self.zone.text_label.setText(nama_tampil(name) if name else "Tarik atau pilih file")
 
     def clear(self):
         self.set_existing("")
@@ -323,6 +337,8 @@ class PostFormPage(BasePage):
 
     # ---------- Listener ----------
     def handle_submit(self):
+        if self.sedang_mengirim:            # klik ganda saat berkas masih disalin: abaikan (jangan mulai worker kedua)
+            return
         judul = self.judul_input.text().strip()
         kategori = self.kategori_input.currentText().strip()
         deskripsi = self.deskripsi_input.toPlainText().strip()
@@ -342,8 +358,8 @@ class PostFormPage(BasePage):
 
         # Berkas disalin oleh WORKER di thread lain, jadi jendela tetap bisa digerakkan / tidak "not responding"
         # walau berkasnya besar atau disimpan di disk yang lambat (flashdisk, drive jaringan, iCloud).
-        nama_poster, tugas_poster = self.rencanakan_salin(self.poster_field)
-        nama_dokumen, tugas_dokumen = self.rencanakan_salin(self.dokumen_field)
+        nama_poster, tugas_poster = self.rencanakan_salin(self.poster_field, "poster")
+        nama_dokumen, tugas_dokumen = self.rencanakan_salin(self.dokumen_field, "dokumen")
         data = {
             "judul": judul, "kategori": kategori, "deskripsi": deskripsi,
             "tanggal_lomba": self.tanggal_input.date().toPython(),
@@ -364,12 +380,16 @@ class PostFormPage(BasePage):
             saat_selesai=lambda _hasil: self.selesaikan(data) if token is self.token_kirim else None,
             saat_galat=lambda pesan: self.gagal_kirim(pesan) if token is self.token_kirim else None)
 
-    def rencanakan_salin(self, field):
-        """Tentukan nama berkas tujuan (tanpa menyalin). Mengembalikan (nama, (sumber, tujuan) atau None)."""
+    def rencanakan_salin(self, field, jenis):
+        """Tentukan nama berkas tujuan (tanpa menyalin). jenis = "poster" / "dokumen" (menentukan subfolder
+        di folder data aplikasi). Dokumen pendukung diberi akhiran .enc -> dienkripsi oleh salin_berkas.
+        Mengembalikan (nama, (sumber, tujuan) atau None)."""
         if not field.path:
             return field.existing, None
-        nama_baru = f"{int(time.time())}_{os.path.basename(field.path)}"
-        tujuan = os.path.join(config.ASSETS_DIR, "postingan", nama_baru)
+        nama_baru = f"{int(time.time())}_{file_storage.nama_aman(os.path.basename(field.path))}"
+        if jenis == "dokumen":
+            nama_baru += ".enc"
+        tujuan = file_storage.path_berkas(jenis, nama_baru)
         return nama_baru, (field.path, tujuan)
 
     def set_mengirim(self, sibuk):

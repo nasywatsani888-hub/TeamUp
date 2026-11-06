@@ -7,6 +7,7 @@ import sizes
 import styles
 import helpers
 import data_store
+import settings_store
 
 
 LOGIN_FIELD = (sizes.LOGIN_FIELD_WIDTH, sizes.LOGIN_FIELD_HEIGHT)
@@ -104,6 +105,9 @@ QPushButton:hover {{ background-color: {config.COLOR_PRIMARY_HOVER}; }}
             data_store.remembered_email = email
         else:
             data_store.remembered_email = ""
+        # Pertemuan 11: dicatat ke pengaturan.json supaya tetap diingat setelah aplikasi ditutup
+        settings_store.atur_banyak(ingat_email=self.remember_checkbox.isChecked(),
+                                   email_terakhir=data_store.remembered_email)
         self.login_success.emit(user)
 
     # Widget Lifecycle: refresh isi form setiap halaman tampil

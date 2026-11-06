@@ -32,10 +32,9 @@ def susun_daftar_kerja():
             mtime = os.path.getmtime(path)
             poster.append((path, sizes.LOMBA_CARD_WIDTH, sizes.LOMBA_POSTER_HEIGHT, 20, False, 2, mtime))   # kartu (Beranda)
             lain.append((path, sizes.DETAIL_POSTER_WIDTH, sizes.DETAIL_POSTER_HEIGHT, 16, True, 2, mtime))  # halaman detail
-    foto_dir = os.path.join(config.ASSETS_DIR, "foto")
     for user in data_store.users:
-        path = os.path.join(foto_dir, user.get("foto", "")) if user.get("foto") else ""
-        if path and os.path.isfile(path):
+        path = helpers.path_foto(user.get("foto", ""))
+        if path:
             mtime = os.path.getmtime(path)
             for ukuran in UKURAN_AVATAR:
                 foto.append((path, ukuran, ukuran, ukuran // 2, True, 1, mtime))     # lingkaran

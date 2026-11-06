@@ -179,9 +179,16 @@ def uji_form(app, jendela):
     cek("berhasil: sinyal submitted tepat satu kali", len(terkirim) == 1)
     cek("klik ganda tidak membuat postingan dobel", len(data_store.postingan_list) == awal + 1)
     p = data_store.postingan_list[0]
-    folder = os.path.join(config.ASSETS_DIR, "postingan")
-    cek("berkas tersalin utuh (6 MB + 3 MB)", os.path.getsize(os.path.join(folder, p["poster"])) == 6 * 1024 * 1024
-        and os.path.getsize(os.path.join(folder, p["dokumen"])) == 3 * 1024 * 1024)
+    # Pertemuan 11: berkas disimpan di folder data aplikasi; poster apa adanya, dokumen TERENKRIPSI (+52 byte: kepala 20 + tag 32)
+    import enkripsi, file_storage
+    path_poster = file_storage.path_berkas("poster", p["poster"])
+    path_dokumen = file_storage.path_berkas("dokumen", p["dokumen"])
+    cek("poster tersalin utuh (6 MB) di folder data aplikasi", os.path.getsize(path_poster) == 6 * 1024 * 1024)
+    cek("dokumen tersimpan terenkripsi (3 MB + 52 byte), bukan salinan polos",
+        os.path.getsize(path_dokumen) == 3 * 1024 * 1024 + 52 and open(path_dokumen, "rb").read(4) == enkripsi.MAGIC)
+    hasil_buka = os.path.join(tmp, "buka.pdf")
+    enkripsi.dekripsi_berkas(path_dokumen, hasil_buka)
+    cek("dokumen terenkripsi bisa dibuka kembali, isi identik", open(hasil_buka, "rb").read() == open(dokumen, "rb").read())
     cek("tombol kembali normal setelah selesai", f.submit_button.isEnabled() and f.submit_button.text() == "Kirim untuk verifikasi")
 
     isi()
@@ -228,9 +235,11 @@ def uji_form(app, jendela):
     cek("pindah halaman saat mengirim: dibatalkan, tidak ada data & tidak lompat halaman",
         len(data_store.postingan_list) == awal and not terkirim)
     shutil.rmtree(tmp, ignore_errors=True)
-    for nama in os.listdir(os.path.join(config.ASSETS_DIR, "postingan")):
-        if "tes_thread" in nama:
-            os.remove(os.path.join(config.ASSETS_DIR, "postingan", nama))
+    import file_storage
+    for jenis in ("poster", "dokumen"):
+        for nama in os.listdir(file_storage.folder_jenis(jenis)):
+            if "tes_thread" in nama:
+                os.remove(os.path.join(file_storage.folder_jenis(jenis), nama))
 
 
 def uji_penutupan(app, jendela):

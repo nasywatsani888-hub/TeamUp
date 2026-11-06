@@ -1,6 +1,5 @@
 # views/edit_profile_page.py — halaman Edit Profil (dibuka dari Beranda / panel profil)
 import os
-import shutil
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtWidgets import (QDialog, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QInputDialog,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget)
@@ -8,6 +7,7 @@ from views.base_page import BasePage
 from views.upload_dialog import UploadDialog
 import config
 import data_store
+import file_storage
 import helpers
 import icons
 import styles
@@ -45,6 +45,7 @@ class EditProfilePage(BasePage):
         self.skills = []          # data sementara di form (baru disimpan saat klik Simpan)
         self.experiences = []
         self.photo_name = ""
+        self.foto_awal = ""       # foto yang sudah tersimpan di akun (pembanding untuk pilihan yang belum disimpan)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -201,7 +202,7 @@ class EditProfilePage(BasePage):
         helpers.clear_layout(self.avatar_holder)
         user = {"nama": self.name_input.text().strip() or "?", "foto": self.photo_name}
         avatar = helpers.make_avatar(user, AVATAR_SIZE)
-        if self.photo_name == "" or not os.path.exists(os.path.join(config.ASSETS_DIR, "foto", self.photo_name)):
+        if not helpers.path_foto(self.photo_name):
             avatar.setStyleSheet(styles.AVATAR_CIRCLE_STYLE + f" color: {config.COLOR_NAVY}; font-size: 28px; font-weight: bold;")
         self.avatar_holder.addWidget(avatar, alignment=Qt.AlignmentFlag.AlignLeft)
         self.camera_button.raise_()
@@ -253,6 +254,7 @@ class EditProfilePage(BasePage):
         self.skills = list(user["keahlian"])
         self.experiences = list(user.get("pengalaman", []))
         self.photo_name = user.get("foto", "")
+        self.foto_awal = self.photo_name
         self.refresh_avatar()
         self.refresh_skills()
         self.refresh_experiences()
@@ -263,14 +265,20 @@ class EditProfilePage(BasePage):
         path, _ = QFileDialog.getOpenFileName(self, "Pilih Foto Profil", "", "Gambar (*.png *.jpg *.jpeg)")
         if path == "":
             return
-        if os.path.getsize(path) > config.MAX_ATTACHMENT_SIZE_MB * 1024 * 1024:
-            helpers.show_error(self.message_label, f"Ukuran foto maksimal {config.MAX_ATTACHMENT_SIZE_MB} MB.")
+        ok, pesan = file_storage.periksa_berkas(path, (".png", ".jpg", ".jpeg"), config.MAX_ATTACHMENT_SIZE_MB)
+        if not ok:
+            helpers.show_error(self.message_label, pesan)
             return
-        foto_dir = os.path.join(config.ASSETS_DIR, "foto")
-        os.makedirs(foto_dir, exist_ok=True)
-        # nama file = bagian depan email + ekstensi asli, mis. demo.png
-        new_name = data_store.current_user["email"].split("@")[0] + os.path.splitext(path)[1].lower()
-        shutil.copy(path, os.path.join(foto_dir, new_name))
+        try:
+            # Disimpan ke folder data aplikasi (bukan folder project). Nama diberi awalan acak, jadi
+            # foto baru tidak menimpa foto lama dan gambar lama di cache tidak ikut terpakai.
+            nama_asal = data_store.current_user["email"].split("@")[0] + os.path.splitext(path)[1]
+            new_name = file_storage.simpan_berkas(path, "foto", nama_asal)
+        except OSError as e:
+            helpers.show_error(self.message_label, f"Gagal menyimpan foto: {e}")
+            return
+        if self.photo_name != self.foto_awal:            # pilihan sebelumnya belum disimpan -> buang, jangan jadi sampah
+            file_storage.hapus_berkas("foto", self.photo_name)
         self.photo_name = new_name
         self.refresh_avatar()
 
@@ -344,6 +352,9 @@ class EditProfilePage(BasePage):
         user["foto"] = self.photo_name
         try:
             data_store.simpan_profil(user)
+            if self.foto_awal != self.photo_name:        # foto diganti & tersimpan -> hapus berkas foto lama
+                file_storage.hapus_berkas("foto", self.foto_awal)
+                self.foto_awal = self.photo_name
             self.profile_saved.emit(user)
         except Exception as e:
             helpers.show_error(self.message_label, f"Gagal menyimpan profil: {e}")

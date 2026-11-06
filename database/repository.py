@@ -11,6 +11,7 @@
 import sqlite3
 from datetime import date, datetime, timedelta
 
+import enkripsi
 from database import db, sandi
 
 
@@ -193,12 +194,32 @@ def tambah_lomba_dilihat(lomba_id):
 
 
 # ================================================================== POSTINGAN
+def _baca_kontak(nilai):
+    """Kontak penyelenggara disimpan TERENKRIPSI di database; dibuka di sini. Data lama yang masih teks biasa
+    tetap terbaca. Kalau kunci hilang / data rusak, tampilkan pesan netral (aplikasi tidak crash)."""
+    try:
+        return enkripsi.dekripsi_teks(nilai)
+    except enkripsi.DataRusak:
+        return "(kontak tidak dapat dibuka)"
+
+
+def amankan_kontak_lama():
+    """Migrasi sekali jalan: enkripsi kontak yang masih berupa teks biasa (mis. dari seeder / versi lama).
+    Aman dipanggil berulang kali (idempoten). Mengembalikan jumlah baris yang diamankan."""
+    with db.koneksi() as c:
+        baris = c.execute("SELECT id, kontak FROM postingan WHERE kontak != '' AND kontak NOT LIKE ?",
+                          (enkripsi.AWALAN_TEKS + "%",)).fetchall()
+        for r in baris:
+            c.execute("UPDATE postingan SET kontak = ? WHERE id = ?", (enkripsi.enkripsi_teks(r["kontak"]), r["id"]))
+    return len(baris)
+
+
 def _dict_postingan(r, sekarang):
     return {
         "id": r["id"], "judul": r["judul"], "gambar": [r["gambar"]] if r["gambar"] else [],
         "kategori": r["kategori"], "penyelenggara": r["penyelenggara"], "deskripsi": r["deskripsi"],
         "tanggal_lomba": _dari_iso(r["tanggal_lomba"]), "tenggat_lomba": _dari_iso(r["tenggat_lomba"]),
-        "link": r["link"], "kontak": r["kontak"], "poster": r["poster"], "dokumen": r["dokumen"],
+        "link": r["link"], "kontak": _baca_kontak(r["kontak"]), "poster": r["poster"], "dokumen": r["dokumen"],
         "status": r["status"], "diunggah_hari_lalu": _hari_lalu(r["dibuat_pada"], sekarang),
         "dilihat": r["dilihat"], "tersimpan": r["tersimpan"], "partner_tertarik": r["partner_tertarik"],
         "alasan_singkat": r["alasan_singkat"], "catatan_admin": r["catatan_admin"],
@@ -237,7 +258,7 @@ def tambah_postingan(email_pemilik, data):
             "INSERT INTO postingan(user_id, judul, kategori, penyelenggara, deskripsi, tanggal_lomba, tenggat_lomba, "
             "link, kontak, poster, dokumen, gambar, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (_id_user(c, email_pemilik), data["judul"], data["kategori"], data["penyelenggara"], data.get("deskripsi", ""),
-             _iso(data.get("tanggal_lomba")), _iso(data.get("tenggat_lomba")), data.get("link", ""), data.get("kontak", ""),
+             _iso(data.get("tanggal_lomba")), _iso(data.get("tenggat_lomba")), data.get("link", ""), enkripsi.enkripsi_teks(data.get("kontak", "")),
              data.get("poster", ""), data.get("dokumen", ""), (data.get("gambar") or [""])[0], data.get("remark", "Pengajuan baru pengguna")))
         return cur.lastrowid
 
@@ -254,7 +275,8 @@ def perbarui_postingan(post_id, data, email_pemilik=None):
         if baris["status"] != "Revisi":
             raise AturanBisnis(f"Hanya postingan berstatus Revisi yang bisa diperbarui (status sekarang: {baris['status']})")
         kolom = [k for k in KOLOM_POSTINGAN if k in data]
-        nilai = [_iso(data[k]) if k in ("tanggal_lomba", "tenggat_lomba") else data[k] for k in kolom]
+        nilai = [_iso(data[k]) if k in ("tanggal_lomba", "tenggat_lomba")
+                 else enkripsi.enkripsi_teks(data[k]) if k == "kontak" else data[k] for k in kolom]
         sekarang = _tulis_waktu(_sekarang())
         set_kolom = (', '.join(k + ' = ?' for k in kolom) + ', ') if kolom else ''
         c.execute(

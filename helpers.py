@@ -1,13 +1,13 @@
 # helpers.py — komponen kecil yang dipakai berulang
-import hashlib
 import os
-import tempfile
 import threading
 from functools import lru_cache
 from PySide6.QtCore import Qt, QPointF, QSize, QUrl
 from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QLabel, QPushButton, QLineEdit, QFrame, QHBoxLayout, QVBoxLayout, QWidget
 import config
+import disk_cache
+import file_storage
 import styles
 
 
@@ -216,10 +216,9 @@ def make_poster(lomba, width, height, radius, bulat_bawah=False):
 
 def lokasi_png_qml(path, mtime, width, height, radius):
     """Lokasi berkas PNG sementara yang dibaca QML (poster sudah dipotong & dibulatkan)."""
-    kunci = hashlib.md5(f"{path}|{mtime}|{width}x{height}|{radius}".encode()).hexdigest()[:16]
-    folder = os.path.join(tempfile.gettempdir(), "teamup_poster_cache")
-    os.makedirs(folder, exist_ok=True)
-    return os.path.join(folder, f"{kunci}.png")
+    # Pertemuan 11: cache disimpan di folder data aplikasi (bukan folder temp sistem yang bisa dibersihkan
+    # kapan saja), kuncinya dibuat disk_cache, dan ukurannya dibatasi oleh disk_cache.bersihkan().
+    return disk_cache.lokasi(disk_cache.buat_kunci(path, mtime, width, height, radius))
 
 
 def simpan_png_atomik(gambar, tujuan):
@@ -415,6 +414,17 @@ class PasswordField(QFrame):
         self.eye_button.setChecked(False)
 
 
+def path_foto(nama):
+    """Lokasi berkas foto profil, atau '' kalau tidak ada. Dicari di folder data user lebih dulu
+    (foto yang diunggah lewat aplikasi), lalu di assets/foto (foto bawaan project / data contoh)."""
+    if not nama:
+        return ""
+    if file_storage.berkas_ada("foto", nama):
+        return file_storage.path_berkas("foto", nama)
+    bawaan = os.path.join(config.ASSETS_DIR, "foto", nama)
+    return bawaan if os.path.isfile(bawaan) else ""
+
+
 def make_avatar(user, size):
     """Foto bulat user dari assets/foto/<nama file>. Kalau foto belum ada,
     tampilkan lingkaran dengan inisial nama (mis. 'Marques Hellim' -> 'MH')."""
@@ -422,8 +432,8 @@ def make_avatar(user, size):
     label.setFixedSize(size, size)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    path = os.path.join(config.ASSETS_DIR, "foto", user.get("foto", ""))
-    if user.get("foto") and os.path.exists(path):
+    path = path_foto(user.get("foto", ""))
+    if path:
         label.setPixmap(_pixmap_foto(path, size, size // 2, os.path.getmtime(path)))   # lingkaran
     else:
         words = user["nama"].split()
@@ -441,8 +451,8 @@ def make_photo_square(user, size, radius=16):
     label = QLabel()
     label.setFixedSize(size, size)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    path = os.path.join(config.ASSETS_DIR, "foto", user.get("foto", ""))
-    if user.get("foto") and os.path.exists(path):
+    path = path_foto(user.get("foto", ""))
+    if path:
         label.setPixmap(_pixmap_foto(path, size, radius, os.path.getmtime(path)))   # persegi membulat
     else:
         words = user["nama"].split()
