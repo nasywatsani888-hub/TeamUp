@@ -12,6 +12,7 @@ import sqlite3
 from datetime import date, datetime, timedelta
 
 import enkripsi
+import hak_akses
 from database import db, sandi
 
 
@@ -21,6 +22,11 @@ class DataTidakValid(Exception):
 
 class AturanBisnis(DataTidakValid):
     """Operasi ditolak oleh aturan bisnis (mis. hanya postingan berstatus Revisi yang boleh diperbarui)."""
+
+
+class HakAksesDitolak(AturanBisnis):
+    """Pelaku tidak berhak melakukan operasi ini (bukan pemilik, bukan admin, atau belum login).
+    Turunan AturanBisnis -> kode lama yang menangkap AturanBisnis tetap berfungsi."""
 
 
 FORMAT_WAKTU = "%Y-%m-%d %H:%M:%S"
@@ -267,13 +273,14 @@ def tambah_postingan(email_pemilik, data):
 def perbarui_postingan(post_id, data, email_pemilik=None):
     """UPDATE (kirim ulang perbaikan). ATURAN: hanya postingan berstatus Revisi. Status kembali Ditangguhkan."""
     with db.koneksi() as c:
-        baris = c.execute("SELECT status, user_id FROM postingan WHERE id = ?", (post_id,)).fetchone()
+        baris = c.execute("SELECT p.status, u.email AS pemilik FROM postingan p JOIN users u ON u.id = p.user_id "
+                          "WHERE p.id = ?", (post_id,)).fetchone()
         if baris is None:
             raise DataTidakValid(f"Postingan {post_id} tidak ditemukan")
-        if email_pemilik and baris["user_id"] != _id_user(c, email_pemilik):
-            raise AturanBisnis("Hanya pemilik yang dapat memperbarui postingan ini")
-        if baris["status"] != "Revisi":
-            raise AturanBisnis(f"Hanya postingan berstatus Revisi yang bisa diperbarui (status sekarang: {baris['status']})")
+        # Pelaku WAJIB disebut (dulu opsional -> pemeriksaan bisa dilewati dengan tidak mengirim email)
+        izin, pesan = hak_akses.boleh_ubah_postingan(email_pemilik, baris["pemilik"], baris["status"])
+        if not izin:
+            raise HakAksesDitolak(pesan)
         kolom = [k for k in KOLOM_POSTINGAN if k in data]
         nilai = [_iso(data[k]) if k in ("tanggal_lomba", "tenggat_lomba")
                  else enkripsi.enkripsi_teks(data[k]) if k == "kontak" else data[k] for k in kolom]
@@ -289,13 +296,13 @@ def perbarui_postingan(post_id, data, email_pemilik=None):
 def hapus_postingan(post_id, email_pemilik=None):
     """DELETE (batalkan / hapus pengajuan). ATURAN: postingan yang sudah Disetujui tidak boleh dihapus pemiliknya."""
     with db.koneksi() as c:
-        baris = c.execute("SELECT status, user_id FROM postingan WHERE id = ?", (post_id,)).fetchone()
+        baris = c.execute("SELECT p.status, u.email AS pemilik FROM postingan p JOIN users u ON u.id = p.user_id "
+                          "WHERE p.id = ?", (post_id,)).fetchone()
         if baris is None:
             return False
-        if email_pemilik and baris["user_id"] != _id_user(c, email_pemilik):
-            raise AturanBisnis("Hanya pemilik yang dapat menghapus pengajuan ini")
-        if baris["status"] == "Disetujui":
-            raise AturanBisnis("Postingan yang sudah disetujui tidak bisa dihapus")
+        izin, pesan = hak_akses.boleh_hapus_postingan(email_pemilik, baris["pemilik"], baris["status"])
+        if not izin:
+            raise HakAksesDitolak(pesan)
         c.execute("DELETE FROM postingan WHERE id = ?", (post_id,))
         return True
 
@@ -310,8 +317,14 @@ def tambah_postingan_counter(post_id, kolom, delta=1):
 
 
 @_bungkus
-def putuskan_postingan(post_id, status, alasan_singkat="", catatan_admin="", bagian_diperbaiki=""):
-    """Sisi ADMIN: ubah status + (kalau Disetujui / Revisi) buat notifikasi untuk pemilik, dalam SATU transaksi."""
+def putuskan_postingan(post_id, status, alasan_singkat="", catatan_admin="", bagian_diperbaiki="", oleh=None):
+    """Sisi ADMIN: ubah status + (kalau Disetujui / Revisi) buat notifikasi untuk pemilik, dalam SATU transaksi.
+    'oleh' = email pelaku; WAJIB admin (lihat hak_akses). Tanpa ini siapa pun bisa menyetujui lomba sendiri."""
+    izin, pesan = hak_akses.boleh_putuskan_postingan(oleh)
+    if not izin:
+        raise HakAksesDitolak(pesan)
+    if status not in hak_akses.STATUS_VALID:
+        raise DataTidakValid(f"Status tidak dikenal: {status}")
     with db.koneksi() as c:
         baris = c.execute("SELECT p.judul, p.user_id FROM postingan p WHERE p.id = ?", (post_id,)).fetchone()
         if baris is None:
@@ -364,8 +377,16 @@ def buat_notifikasi(email_penerima, jenis, judul, email_pengirim=None):
                          (_id_user(c, email_penerima), pengirim, jenis, judul, _tulis_waktu(_sekarang()))).lastrowid
 
 
-def tandai_dibaca(notif_id):
+def tandai_dibaca(notif_id, email_pemilik=None):
+    """Tandai satu notifikasi sudah dibaca. Hanya pemiliknya yang boleh (mencegah IDOR: mengganti id di
+    parameter untuk menyentuh notifikasi orang lain). Notifikasi yang tidak ada / milik orang lain diberi
+    jawaban yang SAMA, supaya penyerang tidak bisa menebak id mana yang ada."""
     with db.koneksi() as c:
+        baris = c.execute("SELECT u.email AS pemilik FROM notifikasi n JOIN users u ON u.id = n.user_id "
+                          "WHERE n.id = ?", (notif_id,)).fetchone()
+        izin, _pesan = hak_akses.boleh_akses_milik(email_pemilik, baris["pemilik"] if baris else "")
+        if not izin:
+            raise HakAksesDitolak("Notifikasi tidak ditemukan atau bukan milik Anda.")
         c.execute("UPDATE notifikasi SET dibaca = 1 WHERE id = ?", (notif_id,))
 
 
@@ -379,13 +400,14 @@ def tandai_semua_notifikasi_dibaca(email_penerima):
 
 @_bungkus
 def hapus_notifikasi(notif_id, email_pemilik=None):
-    """Menghapus satu notifikasi."""
+    """Menghapus satu notifikasi. Pemilik WAJIB disebut (dulu tanpa email = menghapus notifikasi siapa pun)."""
     with db.koneksi() as c:
-        if email_pemilik:
-            user_id = _id_user(c, email_pemilik)
-            c.execute("DELETE FROM notifikasi WHERE id = ? AND user_id = ?", (notif_id, user_id))
-        else:
-            c.execute("DELETE FROM notifikasi WHERE id = ?", (notif_id,))
+        baris = c.execute("SELECT u.email AS pemilik FROM notifikasi n JOIN users u ON u.id = n.user_id "
+                          "WHERE n.id = ?", (notif_id,)).fetchone()
+        izin, _pesan = hak_akses.boleh_akses_milik(email_pemilik, baris["pemilik"] if baris else "")
+        if not izin:
+            raise HakAksesDitolak("Notifikasi tidak ditemukan atau bukan milik Anda.")
+        c.execute("DELETE FROM notifikasi WHERE id = ?", (notif_id,))
 
 
 # ================================================================== RIWAYAT

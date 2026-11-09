@@ -613,7 +613,7 @@ def get_notifikasi_by_id(notif_id):
 
 def tandai_dibaca(notif_id):
     try:
-        repository.tandai_dibaca(notif_id)
+        repository.tandai_dibaca(notif_id, current_user["email"] if current_user else None)
     except Exception:
         pass
     notif = get_notifikasi_by_id(notif_id)

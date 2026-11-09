@@ -18,6 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+import hak_akses
 from database import db, repository, sandi
 
 
@@ -32,6 +33,7 @@ class TestTeamUpCRUD(unittest.TestCase):
         # Alihkan koneksi database ke file temporer
         db.gunakan_database(cls.temp_db_path)
         db.init_db()
+        hak_akses.gunakan_admin(["admin@teamup.com"])      # Pertemuan 12: hanya admin yang boleh memutuskan status
 
     @classmethod
     def tearDownClass(cls):
@@ -158,7 +160,7 @@ class TestTeamUpCRUD(unittest.TestCase):
         # 2. Admin meminta revisi (otomatis memicu notifikasi)
         repository.putuskan_postingan(
             post_id, status="Revisi", alasan_singkat="Link pendaftaran rusak",
-            catatan_admin="Mohon perbaiki tautan pendaftaran", bagian_diperbaiki="link"
+            catatan_admin="Mohon perbaiki tautan pendaftaran", bagian_diperbaiki="link", oleh="admin@teamup.com"
         )
         post_revisi = next(p for p in repository.muat_postingan() if p["id"] == post_id)
         self.assertEqual(post_revisi["status"], "Revisi")
@@ -175,7 +177,7 @@ class TestTeamUpCRUD(unittest.TestCase):
         self.assertEqual(post_perbaikan["link"], "https://example.com/daftar-resmi")
 
         # 4. Admin menyetujui postingan
-        repository.putuskan_postingan(post_id, status="Disetujui")
+        repository.putuskan_postingan(post_id, status="Disetujui", oleh="admin@teamup.com")
         post_setuju = next(p for p in repository.muat_postingan() if p["id"] == post_id)
         self.assertEqual(post_setuju["status"], "Disetujui")
 
