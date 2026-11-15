@@ -1,9 +1,10 @@
 # views/home_page.py — Beranda (isi utama dashboard)
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout
 from views.card_grid import CardGrid
 from views.content_page import ContentPage
 from views.lomba_card import LombaCard
+from views.skeleton_card import SkeletonLombaCard
 import config
 import data_store
 import helpers
@@ -87,8 +88,22 @@ class HomePage(ContentPage):
         # Signal & Slot
         self.find_partner_button.clicked.connect(self.find_partner_clicked)
 
-    def show_lomba_terbaru(self):
-        """Bangun ulang kartu lomba di Beranda dari data_store.lomba_list saat ini."""
+    def show_lomba_terbaru(self, show_skeleton=True):
+        """Bangun ulang kartu lomba di Beranda dari data_store.lomba_list saat ini.
+        Tampilkan skeleton loading sejenak agar pergantian data terasa mulus."""
+        if show_skeleton:
+            skeletons = [SkeletonLombaCard() for _ in range(4)]
+            self.card_grid.set_cards(skeletons)
+            if hasattr(self, "_load_timer") and self._load_timer.isActive():
+                self._load_timer.stop()
+            self._load_timer = QTimer(self)
+            self._load_timer.setSingleShot(True)
+            self._load_timer.timeout.connect(self._render_lomba_cards)
+            self._load_timer.start(350)
+        else:
+            self._render_lomba_cards()
+
+    def _render_lomba_cards(self):
         cards = []
         for lomba in data_store.lomba_list[:4]:
             card = LombaCard(lomba)

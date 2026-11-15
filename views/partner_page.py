@@ -1,11 +1,12 @@
 # views/partner_page.py — halaman Rekan Tim / Temukan Partner
 # Alur: pilih Kategori / Urutkan -> Terapkan -> daftar kandidat -> Kunjungi Profil
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 from views.card_grid import CardGrid
 from views.paginasi import PaginasiBawah
 from views.content_page import ContentPage
 from views.filter_bar import FilterBar
+from views.skeleton_card import SkeletonPartnerCard
 import config
 import data_store
 import helpers
@@ -106,13 +107,34 @@ class PartnerPage(ContentPage):
         # Signal & Slot: filter berubah -> tampilkan ulang daftar
         self.filter_bar.changed.connect(self.show_partners)
 
-    def show_partners(self):
-        """Ambil data sesuai filter, lalu bangun ulang kartu."""
+    def show_partners(self, show_skeleton=True):
+        """Ambil data sesuai filter. Tampilkan skeleton sejenak agar transisi terasa halus."""
+        if show_skeleton:
+            self.empty_label.setVisible(False)
+            self.paginasi.setVisible(False)
+            self.subtitle_label.setText("Memuat rekomendasi rekan tim...")
+            # Tampilkan 4 kartu skeleton
+            skeletons = [SkeletonPartnerCard() for _ in range(4)]
+            self.card_grid.set_cards(skeletons)
+
+            # Timer debounce: hentikan timer sebelumnya jika pengguna ganti filter cepat
+            if hasattr(self, "_load_timer") and self._load_timer.isActive():
+                self._load_timer.stop()
+            self._load_timer = QTimer(self)
+            self._load_timer.setSingleShot(True)
+            self._load_timer.timeout.connect(self._apply_partners_data)
+            self._load_timer.start(350)
+        else:
+            self._apply_partners_data()
+
+    def _apply_partners_data(self):
+        """Bangun kartu partner yang sebenarnya dari data_store."""
         self.semua_partner = data_store.get_partners(self.filter_bar.selected_categories, self.filter_bar.selected_order)
         self.subtitle_label.setText(f"{len(self.semua_partner)} rekan tersedia")
         self.card_grid.set_cards([])
         self.jumlah_tampil = 0
         self.muat_lagi()
+        self.paginasi.setVisible(True)
         self.empty_label.setVisible(len(self.semua_partner) == 0)
 
     def muat_lagi(self):

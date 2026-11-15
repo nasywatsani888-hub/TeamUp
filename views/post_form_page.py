@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QComboBox, QDateEdit, QFileDialog, QFrame, QGridL
                                QLineEdit, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget)
 from views.base_page import BasePage
 from views.upload_dialog import DropZone
+from views.loading_button import LoadingButton
 import config
 import data_store
 import enkripsi
@@ -257,7 +258,7 @@ class PostFormPage(BasePage):
         self.progress_bar.setStyleSheet(styles.POST_PROGRESS_STYLE)
         self.progress_bar.hide()
         layout.addWidget(self.progress_bar, alignment=Qt.AlignmentFlag.AlignHCenter)
-        self.submit_button = QPushButton("Kirim untuk verifikasi")
+        self.submit_button = LoadingButton("Kirim untuk verifikasi")
         self.submit_button.setStyleSheet(styles.POST_BLUE_BUTTON_STYLE)
         self.submit_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.submit_button.setMinimumWidth(320)
@@ -395,9 +396,11 @@ class PostFormPage(BasePage):
     def set_mengirim(self, sibuk):
         """Atur tampilan 'sedang mengirim': tombol dikunci supaya tidak terkirim dobel."""
         self.sedang_mengirim = sibuk
-        self.submit_button.setEnabled(not sibuk)
         self.back_button.setEnabled(not sibuk)
-        self.submit_button.setText("Mengirim..." if sibuk else "Kirim untuk verifikasi")
+        if sibuk:
+            self.submit_button.start_loading("Mengirim...")
+        else:
+            self.submit_button.stop_loading()
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(sibuk)
         if sibuk:

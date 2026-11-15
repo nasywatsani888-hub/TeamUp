@@ -1,7 +1,8 @@
 # views/login_page.py — halaman Masuk
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QWidget
 from views.auth_page import AuthPage
+from views.loading_button import LoadingButton
 import config
 import sizes
 import styles
@@ -69,15 +70,17 @@ QCheckBox::indicator:checked {{
         self.message_label = helpers.make_message_label()
         self.form_layout.addWidget(self.message_label)
 
-        self.login_button = helpers.make_primary_button("Masuk")
+        self.login_button = LoadingButton("Masuk")
         self.login_button.setStyleSheet(f"""
 QPushButton {{
     background-color: {config.COLOR_PRIMARY}; color: white; border: none;
     border-radius: 10px; padding: 0 16px; font-size: {sizes.LOGIN_BUTTON_FONT}px; font-weight: bold;
 }}
 QPushButton:hover {{ background-color: {config.COLOR_PRIMARY_HOVER}; }}
+QPushButton:disabled {{ background-color: {config.COLOR_PRIMARY_HOVER}; color: rgba(255, 255, 255, 210); }}
 """)
         self.login_button.setFixedSize(sizes.LOGIN_FIELD_WIDTH, sizes.LOGIN_FIELD_HEIGHT)
+        self.login_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.form_layout.addWidget(self.login_button, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self.admin_button = helpers.make_link_button("Login Sebagai Admin", size=13, bold=False)
@@ -96,22 +99,32 @@ QPushButton:hover {{ background-color: {config.COLOR_PRIMARY_HOVER}; }}
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
 
-        user = data_store.find_user(email, password)
-        if user is None:
-            helpers.show_error(self.message_label, "Email atau password salah.")
-            return
+        self.login_button.start_loading("Memproses...")
+        self.message_label.setText("")
 
-        if self.remember_checkbox.isChecked():
-            data_store.remembered_email = email
-        else:
-            data_store.remembered_email = ""
-        # Pertemuan 11: dicatat ke pengaturan.json supaya tetap diingat setelah aplikasi ditutup
-        settings_store.atur_banyak(ingat_email=self.remember_checkbox.isChecked(),
-                                   email_terakhir=data_store.remembered_email)
-        self.login_success.emit(user)
+        # Jeda singkat agar feedback visual animasi spinner terlihat jelas dan mulus
+        def proses_verifikasi():
+            user = data_store.find_user(email, password)
+            if user is None:
+                self.login_button.stop_loading()
+                helpers.show_error(self.message_label, "Email atau password salah.")
+                return
+
+            if self.remember_checkbox.isChecked():
+                data_store.remembered_email = email
+            else:
+                data_store.remembered_email = ""
+            # Pertemuan 11: dicatat ke pengaturan.json supaya tetap diingat setelah aplikasi ditutup
+            settings_store.atur_banyak(ingat_email=self.remember_checkbox.isChecked(),
+                                       email_terakhir=data_store.remembered_email)
+            self.login_button.stop_loading()
+            self.login_success.emit(user)
+
+        QTimer.singleShot(250, proses_verifikasi)
 
     # Widget Lifecycle: refresh isi form setiap halaman tampil
     def on_show(self):
+        self.login_button.stop_loading()
         self.email_input.setText(data_store.remembered_email)
         self.remember_checkbox.setChecked(data_store.remembered_email != "")
         self.password_input.clear()
