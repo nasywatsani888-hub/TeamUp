@@ -9,6 +9,7 @@ import styles
 import helpers
 import data_store
 import settings_store
+import keamanan_akun
 
 
 LOGIN_FIELD = (sizes.LOGIN_FIELD_WIDTH, sizes.LOGIN_FIELD_HEIGHT)
@@ -99,16 +100,36 @@ QPushButton:disabled {{ background-color: {config.COLOR_PRIMARY_HOVER}; color: r
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
 
+        # Cek apakah akun sedang terkunci sementara karena percobaan gagal (Pertemuan 12)
+        boleh, sisa_detik = keamanan_akun.cek_boleh_login(email)
+        if not boleh:
+            helpers.show_error(self.message_label, keamanan_akun.pesan_kunci(sisa_detik))
+            return
+
         self.login_button.start_loading("Memproses...")
         self.message_label.setText("")
 
         # Jeda singkat agar feedback visual animasi spinner terlihat jelas dan mulus
         def proses_verifikasi():
+            boleh, sisa_detik = keamanan_akun.cek_boleh_login(email)
+            if not boleh:
+                self.login_button.stop_loading()
+                helpers.show_error(self.message_label, keamanan_akun.pesan_kunci(sisa_detik))
+                return
+
             user = data_store.find_user(email, password)
             if user is None:
                 self.login_button.stop_loading()
-                helpers.show_error(self.message_label, "Email atau password salah.")
+                terkunci, sisa_coba, durasi = keamanan_akun.catat_gagal(email)
+                if terkunci:
+                    helpers.show_error(self.message_label, keamanan_akun.pesan_kunci(durasi))
+                else:
+                    helpers.show_error(self.message_label,
+                                       f"Email atau password salah. Sisa percobaan: {sisa_coba} kali.")
                 return
+
+            # Login berhasil -> hapus catatan percobaan gagal
+            keamanan_akun.catat_berhasil(email)
 
             if self.remember_checkbox.isChecked():
                 data_store.remembered_email = email

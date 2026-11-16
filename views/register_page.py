@@ -42,7 +42,7 @@ QLineEdit:focus {{ border: 1px solid {config.COLOR_PRIMARY}; }}
         self.email_input.setStyleSheet(input_style)
         self.add_field("Email", self.email_input, label_size=sizes.LOGIN_LABEL_FONT, field_size=REGISTER_FIELD)
 
-        self.password_input = helpers.PasswordField("Minimal 8 karakter, huruf & angka")
+        self.password_input = helpers.PasswordField("Min 16 karakter, besar, kecil, angka & simbol")
         self.add_field("Password", self.password_input, label_size=sizes.LOGIN_LABEL_FONT, field_size=REGISTER_FIELD)
         self.password_input.input.setStyleSheet("border: none; background: transparent; padding: 0 8px 0 16px;")
 
@@ -116,7 +116,7 @@ QPushButton:disabled {{ background-color: {config.COLOR_PRIMARY_HOVER}; color: r
             helpers.show_error(self.message_label, "Email sudah terdaftar.")
             return
         if not helpers.is_valid_password(password):
-            helpers.show_error(self.message_label, "Password minimal 8 karakter dan mengandung huruf serta angka.")
+            helpers.show_error(self.message_label, "Password minimal 16 karakter (kombinasi kapital, huruf kecil, angka, dan simbol).")
             return
         if password != confirm:
             helpers.show_error(self.message_label, "Konfirmasi password tidak sama.")

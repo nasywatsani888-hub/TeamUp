@@ -5,3 +5,5 @@ assets/postingan/
 *.swo
 *.zip
 logs/
+.env
+

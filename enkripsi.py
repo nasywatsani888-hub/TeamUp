@@ -45,16 +45,52 @@ class DataRusak(Exception):
 
 
 # ---------- 1. Kunci ----------
+def baca_env():
+    """Membaca berkas .env dari folder project jika ada, lalu memuatnya ke os.environ."""
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.join(root_dir, ".env")
+    if os.path.isfile(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("\"'")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+        except Exception:
+            pass
+
+
 def lokasi_kunci():
     return os.path.join(file_storage.folder_jenis("konfigurasi"), "kunci.key")
 
 
 def muat_kunci():
-    """Kunci utama 32 byte. Dibuat otomatis saat pertama kali dipakai, lalu dibaca dari berkas."""
+    """Kunci utama 32 byte. Diprioritaskan dari file .env (HMAC_SECRET_KEY) yang disimpan terpisah
+    oleh programmer, atau dari berkas konfigurasi lokal."""
     global _kunci_utama
     with _kunci_lock:
         if _kunci_utama is not None:
             return _kunci_utama
+
+        baca_env()
+        kunci_env = os.environ.get("HMAC_SECRET_KEY")
+        if kunci_env:
+            # Jika berupa string hex 64 karakter (32 byte), parse langsung
+            try:
+                if len(kunci_env) == 64 and all(c in "0123456789abcdefABCDEF" for c in kunci_env):
+                    _kunci_utama = bytes.fromhex(kunci_env)
+                    return _kunci_utama
+            except ValueError:
+                pass
+            # Format teks biasa -> turunkan menjadi 32 byte via SHA-256
+            _kunci_utama = hashlib.sha256(kunci_env.encode("utf-8")).digest()
+            return _kunci_utama
+
         path = lokasi_kunci()
         if os.path.isfile(path):
             with open(path, "rb") as f:

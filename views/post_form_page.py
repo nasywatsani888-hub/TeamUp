@@ -349,8 +349,8 @@ class PostFormPage(BasePage):
         if not (judul and kategori and deskripsi and link and kontak and self.poster_field.has_file()):
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
-        if not link.lower().startswith(("http://", "https://")):
-            helpers.show_error(self.message_label, "Link pendaftaran harus diawali http:// atau https://")
+        if not link.lower().startswith("https://"):
+            helpers.show_error(self.message_label, "Link pendaftaran harus aman dan diawali dengan https://")
             return
         if self.mode == "revisi" and link == self.link_awal and self.link_input.property("invalid"):
             helpers.show_error(self.message_label,

@@ -128,7 +128,7 @@ class NewPasswordPage(AuthPage):
         self.add_title("Atur Password Baru!", "Buat password baru untuk akunmu. Pastikan unik dan mudah diingat.")
         self.form_layout.addWidget(helpers.make_image("ilustrasi_gembok.png", 130, "🔒"))
 
-        self.password_input = helpers.PasswordField("Minimal 8 karakter, huruf & angka")
+        self.password_input = helpers.PasswordField("Min 16 karakter, besar, kecil, angka & simbol")
         self.add_field("Password Baru", self.password_input)
         self.confirm_input = helpers.PasswordField("Ulangi password")
         self.add_field("Konfirmasi Password", self.confirm_input)
@@ -146,7 +146,7 @@ class NewPasswordPage(AuthPage):
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
         if not helpers.is_valid_password(password):
-            helpers.show_error(self.message_label, "Password minimal 8 karakter dan mengandung huruf serta angka.")
+            helpers.show_error(self.message_label, "Password minimal 16 karakter (kombinasi kapital, huruf kecil, angka, dan simbol).")
             return
         if password != confirm:
             helpers.show_error(self.message_label, "Konfirmasi password tidak sama.")

@@ -18,6 +18,7 @@ import helpers
 import preload
 import settings_store
 import workers
+import penanganan_error
 from database import repository
 from views.login_page import LoginPage
 from views.register_page import RegisterPage
@@ -171,6 +172,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    penanganan_error.pasang_penanganan_global(app)
     load_fonts()
     app.setStyleSheet(styles.APP_STYLE)
     siapkan_penyimpanan()

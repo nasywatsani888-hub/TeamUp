@@ -74,10 +74,15 @@ def show_success(label, text):
 
 
 def is_valid_password(password):
-    """Minimal 8 karakter, mengandung huruf dan angka."""
-    has_letter = any(ch.isalpha() for ch in password)
+    """Kebijakan kata sandi kuat: Minimal 16 karakter, mengandung huruf besar,
+    huruf kecil, angka, dan tanda unik / simbol (-_* dll)."""
+    if len(password) < 16:
+        return False
+    has_upper = any(ch.isupper() for ch in password)
+    has_lower = any(ch.islower() for ch in password)
     has_digit = any(ch.isdigit() for ch in password)
-    return len(password) >= 8 and has_letter and has_digit
+    has_symbol = any(not ch.isalnum() for ch in password)
+    return has_upper and has_lower and has_digit and has_symbol
 
 
 # ---------- Cache gambar (optimasi RAM & CPU) ----------
