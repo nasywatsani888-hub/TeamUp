@@ -49,6 +49,8 @@ def main():
     asli_user = copy.deepcopy(data_store.users)
     try:
         perbanyak(data_store.postingan_list, 40)
+        for post in data_store.postingan_list:
+            post["pemilik"] = "user0@x.id"        # akun yang login di tes ini; 'Postingan Saya' hanya menampilkan milik sendiri
         perbanyak(data_store.lomba_list, 40)
         perbanyak(data_store.users, 30, tambah_email=True)
         from main import MainWindow
@@ -93,21 +95,37 @@ def main():
         print("\n2. Rekan Tim (30 user; akun yang sedang login tidak ikut ditampilkan)")
         p = d.partner_page
         d.show_content("rekan")
-        app.processEvents()
         kartu = lambda: len(p.findChildren(PartnerCard))
+        jumlah_klik = [0]
+        for _ in range(100):                      # kartu muncul setelah skeleton shimmer (+- 350 ms)
+            app.processEvents()
+            time.sleep(0.01)
+            if kartu():
+                break
         cek(f"halaman pertama hanya {sizes.UKURAN_HALAMAN_REKAN} kartu", kartu() == sizes.UKURAN_HALAMAN_REKAN)
         total = len(p.semua_partner)
         cek(f"subjudul menyebut TOTAL ({total} rekan tersedia), bukan hanya yang tampil", total > sizes.UKURAN_HALAMAN_REKAN and p.subtitle_label.text() == f"{total} rekan tersedia")
         p.paginasi.tombol.click()
-        app.processEvents()
-        cek("klik 'Muat lebih banyak': kartu bertambah", kartu() == 2 * sizes.UKURAN_HALAMAN_REKAN)
+        for _ in range(100):                      # kartu halaman berikutnya dibuat bertahap (tidak langsung)
+            app.processEvents()
+            time.sleep(0.01)
+            if kartu() >= min(2 * sizes.UKURAN_HALAMAN_REKAN if jumlah_klik[0] == 0 else total, total):
+                break
+        jumlah_klik[0] += 1
+        cek("klik 'Muat lebih banyak': kartu bertambah (halaman berikutnya, atau semuanya bila sisa < 1 halaman)",
+            kartu() == min(2 * sizes.UKURAN_HALAMAN_REKAN, total))
         diminta = []
         p.profile_requested.connect(diminta.append)
         kartu_baru = p.findChildren(PartnerCard)[-1]
         kartu_baru.findChildren(QPushButton)[0].click()
         cek("tombol 'Kunjungi Profil' di kartu hasil muat lanjut berfungsi", diminta == [kartu_baru.email])
         p.paginasi.tombol.click()
-        app.processEvents()
+        for _ in range(100):                      # kartu halaman berikutnya dibuat bertahap (tidak langsung)
+            app.processEvents()
+            time.sleep(0.01)
+            if kartu() >= min(2 * sizes.UKURAN_HALAMAN_REKAN if jumlah_klik[0] == 0 else total, total):
+                break
+        jumlah_klik[0] += 1
         cek(f"halaman terakhir: semua {total} kartu tampil & tombol hilang", kartu() == total and not p.paginasi.tombol.isVisible())
 
         print("\n3. Lomba (QML, 40 lomba)")

@@ -9,6 +9,7 @@ import config
 import disk_cache
 import file_storage
 import styles
+import validasi
 
 
 def make_title(text):
@@ -74,15 +75,9 @@ def show_success(label, text):
 
 
 def is_valid_password(password):
-    """Kebijakan kata sandi kuat: Minimal 16 karakter, mengandung huruf besar,
-    huruf kecil, angka, dan tanda unik / simbol (-_* dll)."""
-    if len(password) < 16:
-        return False
-    has_upper = any(ch.isupper() for ch in password)
-    has_lower = any(ch.islower() for ch in password)
-    has_digit = any(ch.isdigit() for ch in password)
-    has_symbol = any(not ch.isalnum() for ch in password)
-    return has_upper and has_lower and has_digit and has_symbol
+    """Kebijakan kata sandi kuat: minimal 16 karakter, huruf besar, huruf kecil, angka, dan simbol.
+    Aturan lengkapnya (termasuk daftar password umum) ada di satu tempat: validasi.periksa_password."""
+    return validasi.periksa_password(password) == ""
 
 
 # ---------- Cache gambar (optimasi RAM & CPU) ----------

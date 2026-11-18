@@ -69,43 +69,67 @@ def lokasi_kunci():
     return os.path.join(file_storage.folder_jenis("konfigurasi"), "kunci.key")
 
 
+PLACEHOLDER_ENV = "your_hmac_secret_key_here_32_bytes_or_hex"     # isi contoh di .env.example
+MIN_PANJANG_ENV = 32                                              # teks biasa minimal 32 karakter (atau hex 64)
+PETUNJUK_KUNCI = 'Buat kunci dengan: python3 -c "import secrets; print(secrets.token_hex(32))"'
+
+
+def _kunci_dari_env():
+    """Kunci dari HMAC_SECRET_KEY (.env), atau None kalau tidak diatur. GAGAL TERTUTUP: nilai contoh dari
+    .env.example atau nilai terlalu pendek DITOLAK, bukan dipakai diam-diam. Nilai contoh itu publik (ada di
+    GitHub), jadi data yang 'dienkripsi' dengannya sama saja tidak terlindungi."""
+    baca_env()
+    nilai = os.environ.get("HMAC_SECRET_KEY", "").strip()
+    if not nilai:
+        return None
+    if nilai == PLACEHOLDER_ENV or nilai.lower().startswith("your_"):
+        raise DataRusak("HMAC_SECRET_KEY di .env masih berisi nilai contoh. Isi dengan kunci rahasia milikmu. "
+                        + PETUNJUK_KUNCI)
+    if len(nilai) == 64 and all(c in "0123456789abcdefABCDEF" for c in nilai):
+        return bytes.fromhex(nilai)                      # hex 64 karakter = 32 byte, dipakai langsung
+    if len(nilai) < MIN_PANJANG_ENV:
+        raise DataRusak(f"HMAC_SECRET_KEY terlalu pendek (minimal {MIN_PANJANG_ENV} karakter). " + PETUNJUK_KUNCI)
+    return hashlib.sha256(nilai.encode("utf-8")).digest()   # teks panjang -> diturunkan jadi 32 byte
+
+
+def _kunci_berkas(buat=True):
+    """Kunci dari berkas konfigurasi lokal. buat=False: hanya membaca (None kalau belum ada), tidak membuat baru."""
+    path = lokasi_kunci()
+    if os.path.isfile(path):
+        with open(path, "rb") as f:
+            kunci = f.read()
+        if len(kunci) != 32:
+            raise DataRusak("Berkas kunci rusak. Jangan dihapus jika sudah ada data terenkripsi!")
+        return kunci
+    if not buat:
+        return None
+    kunci = secrets.token_bytes(32)                      # pengacak aman (bukan random biasa)
+    sementara = path + ".tmp"
+    fd = os.open(sementara, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)   # hanya pemilik yang boleh baca
+    with os.fdopen(fd, "wb") as f:
+        f.write(kunci)
+    os.replace(sementara, path)
+    return kunci
+
+
 def muat_kunci():
-    """Kunci utama 32 byte. Diprioritaskan dari file .env (HMAC_SECRET_KEY) yang disimpan terpisah
-    oleh programmer, atau dari berkas konfigurasi lokal."""
+    """Kunci utama 32 byte untuk ENKRIPSI. Prioritas: HMAC_SECRET_KEY (.env, disimpan terpisah dari kode dan
+    dari data) lalu berkas konfigurasi lokal (dibuat otomatis kalau belum ada)."""
     global _kunci_utama
     with _kunci_lock:
-        if _kunci_utama is not None:
-            return _kunci_utama
+        if _kunci_utama is None:
+            _kunci_utama = _kunci_dari_env() or _kunci_berkas(buat=True)
+        return _kunci_utama
 
-        baca_env()
-        kunci_env = os.environ.get("HMAC_SECRET_KEY")
-        if kunci_env:
-            # Jika berupa string hex 64 karakter (32 byte), parse langsung
-            try:
-                if len(kunci_env) == 64 and all(c in "0123456789abcdefABCDEF" for c in kunci_env):
-                    _kunci_utama = bytes.fromhex(kunci_env)
-                    return _kunci_utama
-            except ValueError:
-                pass
-            # Format teks biasa -> turunkan menjadi 32 byte via SHA-256
-            _kunci_utama = hashlib.sha256(kunci_env.encode("utf-8")).digest()
-            return _kunci_utama
 
-        path = lokasi_kunci()
-        if os.path.isfile(path):
-            with open(path, "rb") as f:
-                kunci = f.read()
-            if len(kunci) != 32:
-                raise DataRusak("Berkas kunci rusak. Jangan dihapus jika sudah ada data terenkripsi!")
-        else:
-            kunci = secrets.token_bytes(32)             # pengacak aman (bukan random biasa)
-            sementara = path + ".tmp"
-            fd = os.open(sementara, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)   # hanya pemilik yang boleh baca
-            with os.fdopen(fd, "wb") as f:
-                f.write(kunci)
-            os.replace(sementara, path)
-        _kunci_utama = kunci
-        return kunci
+def _kunci_pembuka():
+    """Daftar kunci yang dicoba saat MEMBUKA data: kunci utama dulu, lalu kunci berkas lama kalau berbeda.
+    Tanpa ini, begitu .env diaktifkan, semua data yang sudah dienkripsi dengan kunci.key tidak bisa dibuka lagi.
+    Data BARU selalu dienkripsi dengan kunci utama."""
+    utama = muat_kunci()
+    with _kunci_lock:
+        lama = _kunci_berkas(buat=False)
+    return [utama] if lama is None or lama == utama else [utama, lama]
 
 
 def gunakan_kunci(kunci):
@@ -167,7 +191,19 @@ def enkripsi_bytes(data, kunci=None):
 
 
 def dekripsi_bytes(token, kunci=None):
-    kunci = kunci or muat_kunci()
+    """Buka data. Kalau 'kunci' tidak ditentukan, dicoba kunci utama lalu kunci berkas lama (migrasi ke .env)."""
+    if kunci:
+        return _dekripsi_bytes_dengan(token, kunci)
+    galat = None
+    for k in _kunci_pembuka():
+        try:
+            return _dekripsi_bytes_dengan(token, k)
+        except DataRusak as e:
+            galat = e
+    raise galat
+
+
+def _dekripsi_bytes_dengan(token, kunci):
     if len(token) < len(MAGIC) + UKURAN_NONCE + UKURAN_TAG or not token.startswith(MAGIC):
         raise DataRusak("Format data terenkripsi tidak dikenal.")
     nonce = token[len(MAGIC):len(MAGIC) + UKURAN_NONCE]
@@ -226,8 +262,20 @@ def enkripsi_berkas(sumber, tujuan, kunci=None):
 
 def dekripsi_berkas(sumber, tujuan, kunci=None):
     """Kebalikan enkripsi_berkas. Hasil ditulis ke berkas sementara dan baru dipindah ke 'tujuan' SETELAH
-    tag terbukti cocok -> isi yang belum terverifikasi tidak pernah muncul sebagai berkas jadi."""
-    kunci = kunci or muat_kunci()
+    tag terbukti cocok -> isi yang belum terverifikasi tidak pernah muncul sebagai berkas jadi.
+    Kunci tidak ditentukan -> dicoba kunci utama lalu kunci berkas lama (sama seperti dekripsi_bytes)."""
+    if kunci:
+        return _dekripsi_berkas_dengan(sumber, tujuan, kunci)
+    galat = None
+    for k in _kunci_pembuka():
+        try:
+            return _dekripsi_berkas_dengan(sumber, tujuan, k)
+        except DataRusak as e:
+            galat = e
+    raise galat
+
+
+def _dekripsi_berkas_dengan(sumber, tujuan, kunci):
     ukuran = os.path.getsize(sumber)
     awal = len(MAGIC) + UKURAN_NONCE
     if ukuran < awal + UKURAN_TAG:

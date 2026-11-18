@@ -20,6 +20,7 @@ from views.post_success_page import PostSuccessPage
 from views.post_dialogs import ConfirmDialog, EditBlockedDialog
 import data_store
 import memory_tools
+import penanganan_error
 import styles
 
 
@@ -159,7 +160,11 @@ class DashboardPage(BasePage):
             self.show_content("beranda")   # Batal -> Beranda
 
     def handle_profile_saved(self, user):
-        data_store.simpan_profil(user)
+        try:
+            data_store.simpan_profil(user)
+        except Exception as e:
+            QMessageBox.warning(self, "Edit Profil", penanganan_error.laporkan(e, "simpan profil"))
+            return
         QMessageBox.information(self, "Edit Profil", "Profil berhasil disimpan.")
         self.show_content("beranda")
 
@@ -222,7 +227,7 @@ class DashboardPage(BasePage):
                 data_store.hapus_postingan(post_id)
                 self.post_detail_page.show_post(post_id, cancelled=True, salinan=salinan)
             except Exception as e:
-                QMessageBox.warning(self, "Tidak Dapat Dibatalkan", str(e))
+                QMessageBox.warning(self, "Tidak Dapat Dibatalkan", penanganan_error.laporkan(e, "batalkan pengajuan"))
 
     def handle_post_delete(self, post_id):
         post = data_store.get_postingan_by_id(post_id)
@@ -236,7 +241,7 @@ class DashboardPage(BasePage):
                 data_store.hapus_postingan(post_id)
                 self.show_content("unggah")
             except Exception as e:
-                QMessageBox.warning(self, "Tidak Dapat Dihapus", str(e))
+                QMessageBox.warning(self, "Tidak Dapat Dihapus", penanganan_error.laporkan(e, "hapus pengajuan"))
 
     def handle_lomba_detail(self, lomba_id):
         data_store.add_to_history(lomba_id)   # dicatat ke Riwayat setiap dibuka

@@ -10,6 +10,7 @@ import helpers
 import data_store
 import settings_store
 import keamanan_akun
+import penanganan_error
 
 
 LOGIN_FIELD = (sizes.LOGIN_FIELD_WIDTH, sizes.LOGIN_FIELD_HEIGHT)
@@ -121,6 +122,8 @@ QPushButton:disabled {{ background-color: {config.COLOR_PRIMARY_HOVER}; color: r
             if user is None:
                 self.login_button.stop_loading()
                 terkunci, sisa_coba, durasi = keamanan_akun.catat_gagal(email)
+                penanganan_error.catat_keamanan("akun_terkunci" if terkunci else "login_gagal",
+                                                email=email, sisa=sisa_coba, kunci_detik=int(durasi))
                 if terkunci:
                     helpers.show_error(self.message_label, keamanan_akun.pesan_kunci(durasi))
                 else:

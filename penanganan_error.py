@@ -391,6 +391,21 @@ def lepas_penanganan_global():
 
 
 # ============================================================== 6. Alat bantu untuk handler & slot
+def laporkan(exc, konteks="ui"):
+    """Untuk blok try/except di HALAMAN yang menampilkan pesan di label (bukan dialog): catat error ke log dan
+    kembalikan SATU BARIS teks ramah. Menggantikan pola lama  helpers.show_error(label, f"Gagal: {e}")  yang
+    membocorkan teks error mentah (nama tabel, path, pesan SQL) ke layar user.
+        except Exception as e:
+            helpers.show_error(self.message_label, penanganan_error.laporkan(e, "simpan profil"))
+    Error bisnis (aturan, hak akses, data tidak valid) dikembalikan apa adanya; error teknis diberi kode referensi."""
+    setup_logging()
+    if adalah_error_bisnis(exc) or hasattr(exc, "pesan_pengguna"):
+        logger.warning("[bisnis] konteks=%s tipe=%s pesan=%s", konteks, type(exc).__name__, exc)
+        return pesan_untuk_user(exc, "")
+    kode = catat_exception(type(exc), exc, exc.__traceback__, konteks)
+    return pesan_untuk_user(exc, kode).split("\n")[0] + f" (kode: {kode})"
+
+
 def aman(fungsi=None, *, nilai_gagal=None):
     """Dekorator untuk slot / handler tombol: error dicatat & dilaporkan, aplikasi lanjut, mengembalikan nilai_gagal.
         @penanganan_error.aman

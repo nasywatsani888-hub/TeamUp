@@ -18,6 +18,7 @@ import helpers
 import preload
 import settings_store
 import workers
+import keamanan_akun
 import penanganan_error
 from database import repository
 from views.login_page import LoginPage
@@ -150,10 +151,14 @@ class MainWindow(QMainWindow):
         self.show_page(self.dashboard_page)   # ganti ke self.login_page kalau mau balik ke Login dulu
 
     def handle_email_submitted(self, email):
-        code = data_store.generate_otp(email)
-        QMessageBox.information(
-            self, "Simulasi Email",
-            f"Kode OTP kamu: {code}\n\n(Simulasi — aplikasi belum benar-benar mengirim email.)")
+        kode, pesan = data_store.minta_otp(email)
+        if kode:
+            teks = (f"Kode OTP kamu: {kode}\n\nBerlaku {keamanan_akun.MASA_BERLAKU_OTP // 60} menit, "
+                    f"maksimal {keamanan_akun.MAKS_PERCOBAAN_OTP} kali percobaan.\n\n"
+                    "(Simulasi — aplikasi belum benar-benar mengirim email.)")
+        else:
+            teks = pesan                                  # tidak ada kode: tidak terdaftar / terlalu sering meminta
+        QMessageBox.information(self, "Simulasi Email", teks)
         self.show_page(self.otp_page)
 
     def handle_admin_login(self):

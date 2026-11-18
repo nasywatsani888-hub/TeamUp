@@ -1,7 +1,9 @@
 # data_store.py — data SEMENTARA di memori (tanpa database)
 # Data hilang saat aplikasi ditutup. Database baru dipakai di pertemuan 9.
-import random
 from datetime import date
+import hak_akses
+import keamanan_akun
+import penanganan_error
 from database import db, repository, sandi
 
 users = [
@@ -272,7 +274,7 @@ history = []             # id lomba yang pernah dibuka (untuk halaman Riwayat)
 current_user = None      # user yang sedang login
 remembered_email = ""    # untuk checkbox "Ingat saya"
 reset_email = ""         # email yang sedang reset password
-otp_code = ""            # kode OTP terakhir yang dibuat
+otp_code = ""            # (tidak dipakai lagi) kode OTP TIDAK disimpan di memori; hanya hash-nya di keamanan_akun
 
 # ---------- Jembatan ke SQLite (Pertemuan 10) ----------
 try:
@@ -288,10 +290,11 @@ except Exception as _e:
 
 
 def find_user(email, password):
-    for user in users:
-        if user["email"].lower() == email.lower() and sandi.cocok(user["password"], password):
-            return user
-    return None
+    kandidat = next((u for u in users if u["email"].lower() == email.lower()), None)
+    if kandidat is None:
+        keamanan_akun.samarkan_waktu(password)       # email tak terdaftar tetap memakan waktu hashing yang sama
+        return None
+    return kandidat if sandi.cocok(kandidat["password"], password) else None
 
 
 def get_user(email):
@@ -334,11 +337,7 @@ def add_user(nama, email, password):
         "pengalaman": [],
         "foto": "",
     }
-    try:
-        user_id = repository.simpan_user_baru(user)
-        user["id"] = user_id
-    except Exception as e:
-        print(f"[DATA_STORE] Error simpan_user_baru: {e}")
+    user["id"] = repository.simpan_user_baru(user)      # gagal -> error naik ke UI (tidak ada akun hantu di memori)
     users.append(user)
     return user
 
@@ -348,10 +347,7 @@ def simpan_profil(user=None):
     global current_user, users
     user = user or current_user
     if user and user.get("email"):
-        try:
-            repository.perbarui_user(user["email"], user)
-        except Exception as e:
-            print(f"[DATA_STORE] Error perbarui_user: {e}")
+        repository.perbarui_user(user["email"], user)   # gagal -> error naik ke UI (dulu hanya di-print)
         for i, u in enumerate(users):
             if u["email"].lower() == user["email"].lower():
                 users[i].update(user)
@@ -360,23 +356,47 @@ def simpan_profil(user=None):
                 break
 
 
-def generate_otp(email):
-    """Buat kode OTP 4 digit (simulasi, tidak benar-benar dikirim lewat email)."""
-    global reset_email, otp_code
+def minta_otp(email):
+    """Minta kode OTP reset password. Mengembalikan (kode, pesan):
+      * (kode, "")   -> kode dibuat (aman: secrets, berlaku 5 menit, maks. 3 percobaan, lihat keamanan_akun)
+      * (None, pesan) -> TIDAK ada kode: terlalu sering meminta, atau email tidak terdaftar.
+    'pesan' hanya untuk kanal SIMULASI email (aplikasi ini belum mengirim email sungguhan). Layar aplikasi
+    sendiri memberi jawaban yang SAMA untuk email terdaftar maupun tidak (mencegah menebak email yang punya akun)."""
+    global reset_email
     reset_email = email
-    otp_code = f"{random.randint(0, 9999):04d}"
-    return otp_code
+    if not email_exists(email):
+        penanganan_error.catat_keamanan("otp_email_tidak_terdaftar", email=email)
+        return None, "Tidak ada email yang dikirim: alamat ini tidak terdaftar. (Pesan simulasi, tidak tampil di layar aplikasi.)"
+    return keamanan_akun.buat_otp(email)
+
+
+def verifikasi_otp(kode):
+    """Cocokkan kode OTP untuk email yang sedang reset password. Mengembalikan (ok, pesan)."""
+    ok, pesan = keamanan_akun.periksa_otp(reset_email, kode)
+    if not ok:
+        penanganan_error.catat_keamanan("otp_salah", email=reset_email)
+    return ok, pesan
+
+
+def generate_otp(email):
+    """Nama lama, dipertahankan agar kode lama tidak rusak: mengembalikan kode, atau "" kalau tidak dibuat."""
+    kode, _pesan = minta_otp(email)
+    return kode or ""
 
 
 def update_password(email, new_password):
+    """Ganti password. Hanya boleh setelah OTP untuk email ini terbukti benar (izin berlaku 10 menit, sekali pakai)."""
+    if not keamanan_akun.izin_reset_password(email):
+        penanganan_error.catat_keamanan("reset_password_tanpa_izin", email=email)
+        raise repository.HakAksesDitolak("Sesi reset password sudah berakhir. Silakan ulangi dari awal.")
     pass_hash = sandi.hash_password(new_password)
-    try:
-        repository.perbarui_password(email, pass_hash)
-    except Exception as e:
-        print(f"[DATA_STORE] Error perbarui_password: {e}")
+    repository.perbarui_password(email, pass_hash)      # gagal -> error naik ke UI (dulu hanya di-print)
     for user in users:
         if user["email"].lower() == email.lower():
             user["password"] = pass_hash
+    keamanan_akun.selesai_reset(email)                  # izin sekali pakai
+    keamanan_akun.catat_berhasil(email)                 # reset berhasil -> kunci login (kalau ada) dibuka
+    penanganan_error.catat_keamanan("password_direset", email=email)
 
 
 def is_biodata_complete(user):
@@ -527,72 +547,64 @@ def get_lomba_filter(filter_dipilih, urutan=URUTAN_LOMBA_DEFAULT):
     return hasil
 
 
+def _email_aktif():
+    return current_user["email"] if current_user else ""
+
+
+def _milik_saya(item):
+    """True kalau 'item' (postingan / notifikasi) milik user yang sedang login. Belum login -> tidak ada."""
+    return hak_akses.boleh_lihat_data_pribadi(_email_aktif(), item.get("pemilik", ""))
+
+
 def get_postingan(status=None):
-    """Postingan milik user. status=None -> semua; selain itu hanya yang statusnya cocok."""
-    return [post for post in postingan_list if status is None or post["status"] == status]
+    """Postingan milik user YANG LOGIN. status=None -> semua; selain itu hanya yang statusnya cocok.
+    (Dulu mengembalikan postingan SEMUA user, jadi 'Postingan Saya' memperlihatkan data orang lain.)"""
+    return [post for post in postingan_list if _milik_saya(post) and (status is None or post["status"] == status)]
 
 
 def get_postingan_by_id(post_id):
     for post in postingan_list:
-        if post["id"] == post_id:
+        if post["id"] == post_id and _milik_saya(post):
             return post
     return None
 
 
 def tambah_postingan(data):
     """Postingan baru dari form Unggah Info Lomba -> simpan ke DB via repository, status Ditangguhkan."""
-    email = current_user["email"] if current_user else "demo@teamup.com"
     global postingan_list
-    try:
-        post_id = repository.tambah_postingan(email, data)
-        postingan_list = repository.muat_postingan()
-        return get_postingan_by_id(post_id)
-    except Exception as e:
-        print(f"[DATA_STORE] Error tambah_postingan: {e}")
-        post_id = max([post["id"] for post in postingan_list], default=0) + 1
-        post = _postingan_baru(post_id, data)
-        postingan_list.insert(0, post)
-        return post
+    if not current_user:                                  # dulu: diam-diam diunggah atas nama demo@teamup.com
+        raise repository.HakAksesDitolak("Anda harus masuk terlebih dahulu untuk mengunggah postingan.")
+    post_id = repository.tambah_postingan(current_user["email"], data)     # gagal -> error naik ke UI
+    postingan_list = repository.muat_postingan()
+    return get_postingan_by_id(post_id)
 
 
 def kirim_ulang_postingan(post_id, data):
     """Perbaikan dari status Revisi -> simpan ke DB via repository, status kembali Ditangguhkan."""
-    email = current_user["email"] if current_user else None
     global postingan_list
     try:
-        repository.perbarui_postingan(post_id, data, email)
-        postingan_list = repository.muat_postingan()
-        return get_postingan_by_id(post_id)
-    except Exception as e:
-        print(f"[DATA_STORE] Error kirim_ulang_postingan: {e}")
-        post = get_postingan_by_id(post_id)
-        if post:
-            post.update(data)
-            post["status"] = "Ditangguhkan"
-            post["diunggah_hari_lalu"] = 0
-            post["alasan_singkat"] = ""
-            post["catatan_admin"] = ""
-            post["bagian_diperbaiki"] = ""
-        return post
+        repository.perbarui_postingan(post_id, data, _email_aktif())
+    except repository.HakAksesDitolak:
+        penanganan_error.catat_keamanan("akses_ditolak", aksi="perbarui_postingan", id=post_id, pelaku=_email_aktif())
+        raise                                             # dulu: ditelan, lalu data di memori tetap diubah
+    postingan_list = repository.muat_postingan()
+    return get_postingan_by_id(post_id)
 
 
 def hapus_postingan(post_id):
     """Batalkan/hapus pengajuan dari DB via repository."""
-    email = current_user["email"] if current_user else None
     global postingan_list
     try:
-        repository.hapus_postingan(post_id, email)
-        postingan_list = repository.muat_postingan()
-    except Exception as e:
-        print(f"[DATA_STORE] Error hapus_postingan: {e}")
-        post = get_postingan_by_id(post_id)
-        if post is not None:
-            postingan_list.remove(post)
+        repository.hapus_postingan(post_id, _email_aktif())
+    except repository.HakAksesDitolak:
+        penanganan_error.catat_keamanan("akses_ditolak", aksi="hapus_postingan", id=post_id, pelaku=_email_aktif())
+        raise
+    postingan_list = repository.muat_postingan()
 
 
 def hitung_postingan():
     """{'Semua': 4, 'Ditangguhkan': 1, ...} untuk angka di chip filter."""
-    hasil = {"Semua": len(postingan_list)}
+    hasil = {"Semua": len(get_postingan())}
     for status in STATUS_POSTINGAN:
         hasil[status] = len(get_postingan(status))
     return hasil
@@ -600,25 +612,30 @@ def hitung_postingan():
 
 def get_notifikasi(hanya_belum_dibaca=False):
     """Notifikasi terbaru di atas. hanya_belum_dibaca=True -> untuk tab 'Belum dibaca'."""
-    hasil = [n for n in notifikasi_list if not (hanya_belum_dibaca and n["dibaca"])]
+    hasil = [n for n in notifikasi_list if _milik_saya(n) and not (hanya_belum_dibaca and n["dibaca"])]
     return sorted(hasil, key=lambda n: n["menit_lalu"])
 
 
 def get_notifikasi_by_id(notif_id):
     for notif in notifikasi_list:
-        if notif["id"] == notif_id:
+        if notif["id"] == notif_id and _milik_saya(notif):
             return notif
     return None
 
 
 def tandai_dibaca(notif_id):
     try:
-        repository.tandai_dibaca(notif_id, current_user["email"] if current_user else None)
-    except Exception:
-        pass
+        repository.tandai_dibaca(notif_id, _email_aktif())
+    except repository.HakAksesDitolak:
+        penanganan_error.catat_keamanan("akses_ditolak", aksi="tandai_dibaca", id=notif_id, pelaku=_email_aktif())
+        return False
+    except Exception as e:
+        penanganan_error.laporkan(e, "tandai_dibaca")     # dicatat ke log; layar tidak berubah
+        return False
     notif = get_notifikasi_by_id(notif_id)
     if notif is not None:
         notif["dibaca"] = True
+    return True
 
 
 def get_history():

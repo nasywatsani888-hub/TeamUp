@@ -6,8 +6,10 @@ from views.loading_button import LoadingButton
 import config
 import data_store
 import helpers
+import penanganan_error
 import sizes
 import styles
+import validasi
 
 
 REGISTER_FIELD = (sizes.LOGIN_FIELD_WIDTH, sizes.LOGIN_FIELD_HEIGHT)
@@ -42,7 +44,7 @@ QLineEdit:focus {{ border: 1px solid {config.COLOR_PRIMARY}; }}
         self.email_input.setStyleSheet(input_style)
         self.add_field("Email", self.email_input, label_size=sizes.LOGIN_LABEL_FONT, field_size=REGISTER_FIELD)
 
-        self.password_input = helpers.PasswordField("Min 16 karakter, besar, kecil, angka & simbol")
+        self.password_input = helpers.PasswordField(validasi.ATURAN_PASSWORD)
         self.add_field("Password", self.password_input, label_size=sizes.LOGIN_LABEL_FONT, field_size=REGISTER_FIELD)
         self.password_input.input.setStyleSheet("border: none; background: transparent; padding: 0 8px 0 16px;")
 
@@ -101,22 +103,24 @@ QPushButton:disabled {{ background-color: {config.COLOR_PRIMARY_HOVER}; color: r
         self.register_button.clicked.connect(self.handle_register)
 
     def handle_register(self):
-        name = self.name_input.text().strip()
-        email = self.email_input.text().strip()
+        name = validasi.bersihkan_teks(self.name_input.text())
+        email = validasi.normalisasi_email(self.email_input.text())
         password = self.password_input.text()
         confirm = self.confirm_input.text()
 
         if name == "" or email == "" or password == "" or confirm == "":
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
-        if "@" not in email or "." not in email:
-            helpers.show_error(self.message_label, "Format email tidak valid.")
+        pesan = validasi.periksa_nama(name) or validasi.periksa_email(email)
+        if pesan:
+            helpers.show_error(self.message_label, pesan)
             return
         if data_store.email_exists(email):
             helpers.show_error(self.message_label, "Email sudah terdaftar.")
             return
-        if not helpers.is_valid_password(password):
-            helpers.show_error(self.message_label, "Password minimal 16 karakter (kombinasi kapital, huruf kecil, angka, dan simbol).")
+        pesan = validasi.periksa_password(password, email)
+        if pesan:
+            helpers.show_error(self.message_label, pesan)
             return
         if password != confirm:
             helpers.show_error(self.message_label, "Konfirmasi password tidak sama.")
@@ -135,7 +139,7 @@ QPushButton:disabled {{ background-color: {config.COLOR_PRIMARY_HOVER}; color: r
                 self.register_success.emit(user)
             except Exception as e:
                 self.register_button.stop_loading()
-                helpers.show_error(self.message_label, str(e))
+                helpers.show_error(self.message_label, penanganan_error.laporkan(e, "daftar akun"))
 
         QTimer.singleShot(250, _do_register)
 

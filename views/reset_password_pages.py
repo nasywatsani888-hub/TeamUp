@@ -5,8 +5,10 @@ from PySide6.QtWidgets import QHBoxLayout, QLineEdit
 from views.auth_page import AuthPage
 import helpers
 import data_store
+import penanganan_error
 import styles
 import sizes
+import validasi
 
 
 class ForgotPasswordPage(AuthPage):
@@ -37,9 +39,12 @@ class ForgotPasswordPage(AuthPage):
         if email == "":
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
-        if not data_store.email_exists(email):
-            helpers.show_error(self.message_label, "Email tidak terdaftar.")
+        email = validasi.normalisasi_email(email)
+        pesan = validasi.periksa_email(email)
+        if pesan:
+            helpers.show_error(self.message_label, pesan)
             return
+        # Layar TIDAK membedakan email terdaftar / tidak (mencegah menebak email yang punya akun).
         self.email_submitted.emit(email)
 
     def on_show(self):
@@ -108,8 +113,9 @@ class OtpPage(AuthPage):
         if len(code) < 4:
             helpers.show_error(self.message_label, "Mohon lengkapi 4 digit kode OTP.")
             return
-        if code != data_store.otp_code:
-            helpers.show_error(self.message_label, "Kode OTP salah.")
+        ok, pesan = data_store.verifikasi_otp(code)       # kedaluwarsa 5 menit, maks. 3 percobaan, sekali pakai
+        if not ok:
+            helpers.show_error(self.message_label, pesan)
             return
         self.otp_verified.emit()
 
@@ -128,7 +134,7 @@ class NewPasswordPage(AuthPage):
         self.add_title("Atur Password Baru!", "Buat password baru untuk akunmu. Pastikan unik dan mudah diingat.")
         self.form_layout.addWidget(helpers.make_image("ilustrasi_gembok.png", 130, "🔒"))
 
-        self.password_input = helpers.PasswordField("Min 16 karakter, besar, kecil, angka & simbol")
+        self.password_input = helpers.PasswordField(validasi.ATURAN_PASSWORD)
         self.add_field("Password Baru", self.password_input)
         self.confirm_input = helpers.PasswordField("Ulangi password")
         self.add_field("Konfirmasi Password", self.confirm_input)
@@ -145,8 +151,9 @@ class NewPasswordPage(AuthPage):
         if password == "" or confirm == "":
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
-        if not helpers.is_valid_password(password):
-            helpers.show_error(self.message_label, "Password minimal 16 karakter (kombinasi kapital, huruf kecil, angka, dan simbol).")
+        pesan = validasi.periksa_password(password, data_store.reset_email)
+        if pesan:
+            helpers.show_error(self.message_label, pesan)
             return
         if password != confirm:
             helpers.show_error(self.message_label, "Konfirmasi password tidak sama.")
@@ -155,7 +162,7 @@ class NewPasswordPage(AuthPage):
             data_store.update_password(data_store.reset_email, password)
             self.password_updated.emit()
         except Exception as e:
-            helpers.show_error(self.message_label, f"Gagal memperbarui password: {e}")
+            helpers.show_error(self.message_label, penanganan_error.laporkan(e, "reset password"))
 
     def on_show(self):
         self.password_input.clear()

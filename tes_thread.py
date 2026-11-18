@@ -127,7 +127,7 @@ def uji_preload(app, jendela):
     cek(f"gambar siap diparkir ({siap})", siap > 0)
     d = jendela.dashboard_page
     d.show_content("rekan")
-    app.processEvents()
+    tunggu(app, lambda: len(helpers._gambar_siap) < siap, 3)       # kartu muncul setelah skeleton (+- 350 ms)
     cek("gambar yang dipakai UI diambil dari parkiran (parkiran berkurang)", len(helpers._gambar_siap) < siap)
     mulai = time.perf_counter()
     d.handle_lomba_detail(2)
@@ -160,9 +160,9 @@ def uji_form(app, jendela):
         d.handle_new_post()
         f.judul_input.setText("Lomba Uji Thread")
         f.kategori_input.setCurrentIndex(1)
-        f.deskripsi_input.setPlainText("d")
+        f.deskripsi_input.setPlainText("Lomba uji untuk memeriksa penyalinan berkas di worker thread.")
         f.link_input.setText("https://x.id")
-        f.kontak_input.setText("0812")
+        f.kontak_input.setText("081234567824")
         f.poster_field.handle_file_chosen(poster)
         f.dokumen_field.handle_file_chosen(dokumen)
 
@@ -172,7 +172,7 @@ def uji_form(app, jendela):
     f.submitted.connect(lambda i, m: terkirim.append((i, m)))
     f.submit_button.click()
     cek("saat mengirim: tombol terkunci & progress bar tampil",
-        not f.submit_button.isEnabled() and not f.back_button.isEnabled() and f.submit_button.text() == "Mengirim...")
+        not f.submit_button.isEnabled() and not f.back_button.isEnabled() and f.submit_button.is_loading())
     f.submit_button.click()
     f.handle_submit()   # klik ganda harus diabaikan
     tunggu(app, lambda: terkirim)

@@ -30,6 +30,9 @@ import enkripsi
 import file_storage
 import settings_store
 
+os.environ.pop("HMAC_SECRET_KEY", None)       # tes tidak boleh terpengaruh .env milik developer
+enkripsi.baca_env = lambda: None
+
 LULUS = 0
 GAGAL = 0
 
@@ -253,6 +256,37 @@ def uji_enkripsi():
     cek("format tak dikenal -> DataRusak (bukan crash lain)", ditolak)
 
     cek("berkas kunci 32 byte & dibuat otomatis", os.path.getsize(e.lokasi_kunci()) == 32)
+
+    # --- kunci dari .env (HMAC_SECRET_KEY): divalidasi, dan data lama tetap terbuka
+    teks_lama = e.enkripsi_teks("0812-LAMA")                              # dienkripsi dengan kunci.key
+    berkas_lama = tulis(os.path.join(TEMP, "enk", "lama.bin"), os.urandom(4000))
+    e.enkripsi_berkas(berkas_lama, berkas_lama + ".enc")
+
+    def env_ditolak(nilai):
+        os.environ["HMAC_SECRET_KEY"] = nilai
+        e.gunakan_kunci(None)
+        try:
+            e.muat_kunci()
+            return False
+        except e.DataRusak:
+            return True
+    cek("HMAC_SECRET_KEY berisi nilai contoh dari .env.example: DITOLAK (kunci publik)", env_ditolak(e.PLACEHOLDER_ENV))
+    cek("HMAC_SECRET_KEY berawalan 'your_': ditolak", env_ditolak("your_secret_apa_saja_yang_panjang_sekali_123"))
+    cek("HMAC_SECRET_KEY terlalu pendek (< 32 karakter): ditolak", env_ditolak("abc123"))
+    os.environ["HMAC_SECRET_KEY"] = "ab" * 32
+    e.gunakan_kunci(None)
+    cek("HMAC_SECRET_KEY hex 64 karakter: dipakai langsung sebagai kunci", e.muat_kunci() == bytes.fromhex("ab" * 32))
+    token_baru = e.enkripsi_teks("0812-BARU")
+    cek("data lama (kunci.key) tetap terbuka setelah .env diaktifkan", e.dekripsi_teks(teks_lama) == "0812-LAMA")
+    e.dekripsi_berkas(berkas_lama + ".enc", berkas_lama + ".hasil")
+    cek("berkas lama tetap terbuka setelah .env diaktifkan", open(berkas_lama + ".hasil", "rb").read() == open(berkas_lama, "rb").read())
+    cek("data baru dienkripsi dengan kunci .env & terbuka", e.dekripsi_teks(token_baru) == "0812-BARU")
+    os.environ["HMAC_SECRET_KEY"] = "kunci-teks-biasa-yang-cukup-panjang-123456"
+    e.gunakan_kunci(None)
+    cek("teks biasa >= 32 karakter: diturunkan jadi kunci 32 byte", len(e.muat_kunci()) == 32 and e.muat_kunci() != bytes.fromhex("ab" * 32))
+    os.environ.pop("HMAC_SECRET_KEY")
+    e.gunakan_kunci(None)
+    cek("tanpa .env: kembali ke kunci.key, data lama terbuka", e.dekripsi_teks(teks_lama) == "0812-LAMA")
     if sys.platform != "win32":
         cek("berkas kunci hanya bisa dibaca pemilik (izin 600)", oct(os.stat(e.lokasi_kunci()).st_mode & 0o777) == "0o600")
     e.gunakan_kunci(None)
@@ -337,7 +371,8 @@ def uji_database():
     cek("setelah migrasi: nilai tetap benar",
         next(p for p in repository.muat_postingan() if p["id"] == post_id)["kontak"] == "085500001111")
 
-    enkripsi.gunakan_kunci(b"Z" * 32)                      # meniru kunci hilang / berganti
+    os.remove(enkripsi.lokasi_kunci())                      # kunci benar-benar hilang ...
+    enkripsi.gunakan_kunci(b"Z" * 32)                      # ... dan yang tersedia kunci lain
     try:
         kontak = next(p for p in repository.muat_postingan() if p["id"] == post_id)["kontak"]
         aman = "tidak dapat dibuka" in kontak

@@ -14,8 +14,10 @@ import enkripsi
 import file_storage
 import helpers
 import icons
+import penanganan_error
 import sizes
 import styles
+import validasi
 import workers
 
 
@@ -340,17 +342,21 @@ class PostFormPage(BasePage):
     def handle_submit(self):
         if self.sedang_mengirim:            # klik ganda saat berkas masih disalin: abaikan (jangan mulai worker kedua)
             return
-        judul = self.judul_input.text().strip()
-        kategori = self.kategori_input.currentText().strip()
-        deskripsi = self.deskripsi_input.toPlainText().strip()
-        link = self.link_input.text().strip()
-        kontak = self.kontak_input.text().strip()
+        judul = validasi.bersihkan_teks(self.judul_input.text())
+        kategori = validasi.bersihkan_teks(self.kategori_input.currentText())
+        deskripsi = validasi.bersihkan_teks(self.deskripsi_input.toPlainText(), satu_baris=False)
+        link = validasi.bersihkan_teks(self.link_input.text())
+        kontak = validasi.bersihkan_teks(self.kontak_input.text())
 
         if not (judul and kategori and deskripsi and link and kontak and self.poster_field.has_file()):
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
             return
-        if not link.lower().startswith("https://"):
-            helpers.show_error(self.message_label, "Link pendaftaran harus aman dan diawali dengan https://")
+        pesan = (validasi.periksa_teks(judul, "Judul lomba", "judul")
+                 or validasi.periksa_teks(deskripsi, "Deskripsi", "deskripsi")
+                 or validasi.periksa_url(link)                  # hanya https:// (revisi dosen)
+                 or validasi.periksa_kontak(kontak))            # nomor telepon ATAU email yang valid
+        if pesan:
+            helpers.show_error(self.message_label, pesan)
             return
         if self.mode == "revisi" and link == self.link_awal and self.link_input.property("invalid"):
             helpers.show_error(self.message_label,
@@ -419,7 +425,7 @@ class PostFormPage(BasePage):
             self.message_label.setText("")
             self.submitted.emit(post["id"], self.mode)
         except Exception as e:
-            helpers.show_error(self.message_label, f"Gagal menyimpan ke database: {e}")
+            helpers.show_error(self.message_label, penanganan_error.laporkan(e, "kirim postingan"))
 
     def gagal_kirim(self, pesan):
         self.set_mengirim(False)

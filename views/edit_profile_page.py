@@ -10,8 +10,10 @@ import data_store
 import file_storage
 import helpers
 import icons
+import penanganan_error
 import styles
 import sizes
+import validasi
 
 AVATAR_SIZE = sizes.EDIT_PROFILE_AVATAR_SIZE
 
@@ -327,14 +329,23 @@ class EditProfilePage(BasePage):
         helpers.show_success(self.message_label, "Form dikosongkan. Isi ulang lalu klik Simpan.")
 
     def handle_save(self):
-        name = self.name_input.text().strip()
-        username = self.username_input.text().strip().lstrip("@")
-        prodi = self.prodi_input.text().strip()
-        univ = self.univ_input.text().strip()
-        domisili = self.domisili_input.text().strip()
+        name = validasi.bersihkan_teks(self.name_input.text())
+        username = validasi.bersihkan_teks(self.username_input.text()).lstrip("@")
+        prodi = validasi.bersihkan_teks(self.prodi_input.text())
+        univ = validasi.bersihkan_teks(self.univ_input.text())
+        domisili = validasi.bersihkan_teks(self.domisili_input.text())
+        bio = validasi.bersihkan_teks(self.bio_input.toPlainText(), satu_baris=False)
 
         if name == "" or username == "" or prodi == "" or univ == "" or domisili == "":
             helpers.show_error(self.message_label, "Mohon lengkapi semua data terlebih dahulu.")
+            return
+        pesan = (validasi.periksa_nama(name) or validasi.periksa_username(username)
+                 or validasi.periksa_teks(prodi, "Program studi", "prodi")
+                 or validasi.periksa_teks(univ, "Universitas", "universitas")
+                 or validasi.periksa_teks(domisili, "Domisili", "domisili")
+                 or validasi.periksa_teks(bio, "Bio", "bio"))
+        if pesan:
+            helpers.show_error(self.message_label, pesan)
             return
         if data_store.username_exists(username, data_store.current_user):
             helpers.show_error(self.message_label, "Username sudah dipakai, coba yang lain.")
@@ -346,7 +357,7 @@ class EditProfilePage(BasePage):
         user["prodi"] = prodi
         user["universitas"] = univ
         user["domisili"] = domisili
-        user["bio"] = self.bio_input.toPlainText().strip()
+        user["bio"] = bio
         user["keahlian"] = list(self.skills)
         user["pengalaman"] = list(self.experiences)
         user["foto"] = self.photo_name
@@ -357,7 +368,7 @@ class EditProfilePage(BasePage):
                 self.foto_awal = self.photo_name
             self.profile_saved.emit(user)
         except Exception as e:
-            helpers.show_error(self.message_label, f"Gagal menyimpan profil: {e}")
+            helpers.show_error(self.message_label, penanganan_error.laporkan(e, "simpan profil"))
 
     # ---------- Widget Lifecycle ----------
     def on_show(self):
