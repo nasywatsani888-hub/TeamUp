@@ -115,7 +115,7 @@ def periksa_email(email):
         return "Email tidak boleh kosong."
     if len(email) > maksimal:
         return f"Email maksimal {maksimal} karakter."
-    if " " in email or not _POLA_EMAIL.match(email):
+    if " " in email or not _POLA_EMAIL.fullmatch(email):
         return "Format email tidak valid (contoh: nama@kampus.ac.id)."
     lokal = email.split("@")[0]
     if len(lokal) > 64 or lokal.startswith(".") or lokal.endswith(".") or ".." in email:
@@ -143,7 +143,7 @@ def periksa_username(username):
     pesan = periksa_panjang(username, "Username", minimal, maksimal)
     if pesan:
         return pesan
-    if not _POLA_USERNAME.match(username):
+    if not _POLA_USERNAME.fullmatch(username):
         return "Username hanya boleh berisi huruf, angka, garis bawah (_), dan titik (.), tanpa spasi."
     if username.startswith(".") or username.endswith(".") or ".." in username:
         return "Username tidak boleh diawali/diakhiri titik atau memuat titik berurutan."
@@ -247,7 +247,7 @@ def periksa_url(url, wajib_https=True):
         return "Link pendaftaran harus diawali https://"
     if bagian.username or bagian.password:
         return "Link tidak boleh memuat nama pengguna / kata sandi."
-    if not _POLA_HOST.match(host) or len(host) > 253:
+    if not _POLA_HOST.fullmatch(host) or len(host) > 253:
         return "Nama situs pada link tidak valid (contoh: https://kampus.ac.id/lomba)."
     return ""
 

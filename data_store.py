@@ -292,7 +292,7 @@ except Exception as _e:
 def find_user(email, password):
     kandidat = next((u for u in users if u["email"].lower() == email.lower()), None)
     if kandidat is None:
-        keamanan_akun.samarkan_waktu(password)       # email tak terdaftar tetap memakan waktu hashing yang sama
+        keamanan_akun.samakan_waktu(password)       # email tak terdaftar tetap memakan waktu hashing yang sama
         return None
     return kandidat if sandi.cocok(kandidat["password"], password) else None
 
