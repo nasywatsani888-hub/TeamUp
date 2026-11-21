@@ -149,6 +149,8 @@ def siapkan_enkripsi():
 @skenario("database", "Database — 60 putaran muat_users, muat_lomba, muat_postingan, muat_notifikasi (SQLite)")
 def siapkan_database():
     from database import repository
+    from database.seeder import seed_database
+    seed_database()                      # teamup.db tidak lagi ikut di-commit: pastikan database & data contoh ada
 
     def kerja():
         for _ in range(60):
